@@ -19,20 +19,96 @@ export class ClaudeAdapter extends BaseAgentAdapter {
 
   formatHookOutput(hookData: HookData): string {
     const toolName = hookData.tool_name || hookData.toolName || 'unknown';
+    const toolInput = hookData.tool_input || hookData.input || {};
     let output = hookData.tool_response || hookData.output || '';
 
-    // Convert object to string if needed
+    // Convert object output to string if needed
     if (typeof output === 'object') {
       output = JSON.stringify(output, null, 2);
     }
 
-    // Truncate long outputs
-    const maxLength = 1800;
-    const truncatedOutput = output.length > maxLength
-      ? output.substring(0, maxLength) + '\n... (truncated)'
-      : output;
+    // Helper to extract basename from path
+    const basename = (path: string): string => {
+      return path.split('/').pop() || path;
+    };
 
-    return `**Claude** - 🔧 ${toolName}\n\`\`\`\n${truncatedOutput}\n\`\`\``;
+    // Helper to count lines in text
+    const countLines = (text: string): number => {
+      return text.split('\n').length;
+    };
+
+    // Helper to truncate text
+    const truncate = (text: string, maxLen: number): string => {
+      return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
+    };
+
+    let summary: string;
+
+    switch (toolName.toLowerCase()) {
+      case 'read': {
+        const filePath = toolInput.file_path || 'unknown file';
+        const lineCount = countLines(output);
+        summary = `📄 \`${basename(filePath)}\` (${lineCount} lines)`;
+        break;
+      }
+
+      case 'write': {
+        const filePath = toolInput.file_path || 'unknown file';
+        summary = `✏️ Wrote \`${basename(filePath)}\``;
+        break;
+      }
+
+      case 'edit': {
+        const filePath = toolInput.file_path || 'unknown file';
+        summary = `✏️ Edited \`${basename(filePath)}\``;
+        break;
+      }
+
+      case 'glob': {
+        const lines = output.trim().split('\n').filter(l => l.trim());
+        const fileCount = lines.length;
+        const firstFew = lines.slice(0, 3).map(basename).join(', ');
+        summary = `🔍 Found ${fileCount} file${fileCount !== 1 ? 's' : ''}${firstFew ? `: ${firstFew}${fileCount > 3 ? ', ...' : ''}` : ''}`;
+        break;
+      }
+
+      case 'grep': {
+        const lines = output.trim().split('\n').filter(l => l.trim());
+        const files = new Set(lines.map(l => l.split(':')[0]).filter(Boolean));
+        summary = `🔍 Found matches in ${files.size} file${files.size !== 1 ? 's' : ''}`;
+        break;
+      }
+
+      case 'bash': {
+        const command = toolInput.command || 'unknown command';
+        const cmdDisplay = truncate(command, 60);
+        const outputBrief = truncate(output.trim(), 200);
+        summary = `💻 \`${cmdDisplay}\`${outputBrief ? `\n${outputBrief}` : ''}`;
+        break;
+      }
+
+      case 'task': {
+        const description = toolInput.prompt || toolInput.description || 'task';
+        const descBrief = truncate(description, 100);
+        summary = `🤖 Delegated: ${descBrief}`;
+        break;
+      }
+
+      case 'askuserquestion': {
+        const question = toolInput.question || output;
+        const questionBrief = truncate(question, 150);
+        summary = `❓ ${questionBrief}`;
+        break;
+      }
+
+      default: {
+        const outputBrief = truncate(output.trim(), 200);
+        summary = `🔧 ${toolName}${outputBrief ? `\n${outputBrief}` : ''}`;
+        break;
+      }
+    }
+
+    return `**Claude** - ${summary}`;
   }
 
   getHookScript(bridgePort: number): string {
@@ -92,6 +168,18 @@ EOF
               {
                 type: 'command',
                 command: hookScriptPath,
+              },
+            ],
+          },
+        ],
+        Stop: [
+          {
+            matcher: '',
+            hooks: [
+              {
+                type: 'command',
+                command: `${hooksDir}/claude-stop.sh`,
+                timeout: 10,
               },
             ],
           },

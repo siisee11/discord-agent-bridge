@@ -55,6 +55,10 @@ export class StateManager {
     writeFileSync(STATE_FILE, JSON.stringify(this.state, null, 2));
   }
 
+  reload(): void {
+    this.state = this.loadState();
+  }
+
   getProject(projectName: string): ProjectState | undefined {
     return this.state.projects[projectName];
   }

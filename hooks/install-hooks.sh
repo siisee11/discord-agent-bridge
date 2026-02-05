@@ -58,7 +58,25 @@ if [[ -d "$HOME/.claude" ]]; then
     end
   ' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp" && mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
 
-  echo "  ✅ Claude Code hooks installed (PostToolUse + PreToolUse)"
+  # Add Stop hook (capture text responses)
+  STOP_HOOK_CMD="$SCRIPT_DIR/claude-stop.sh"
+  jq --arg cmd "$STOP_HOOK_CMD" '
+    .hooks.Stop //= [] |
+    if (.hooks.Stop | map(select(.hooks[]?.command == $cmd)) | length) == 0 then
+      .hooks.Stop += [{
+        "matcher": "",
+        "hooks": [{
+          "type": "command",
+          "command": $cmd,
+          "timeout": 10
+        }]
+      }]
+    else
+      .
+    end
+  ' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp" && mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
+
+  echo "  ✅ Claude Code hooks installed (PreToolUse + PostToolUse + Stop)"
 else
   echo "  ⏭️  Claude Code not found, skipping"
 fi

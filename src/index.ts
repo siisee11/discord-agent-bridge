@@ -90,6 +90,7 @@ export class AgentBridge {
 
     const approvePattern = new RegExp(`^/approve/([^/]+)/(${agentNames})$`);
     const notifyPattern = new RegExp(`^/notify/([^/]+)/(${agentNames})$`);
+    const reloadPattern = /^\/reload$/;
 
     this.httpServer = createServer(async (req, res) => {
       if (req.method !== 'POST') {
@@ -104,6 +105,14 @@ export class AgentBridge {
       req.on('data', chunk => { body += chunk; });
       req.on('end', async () => {
         try {
+          // Route: /reload (re-read state and update channel mappings) - no body needed
+          if (pathname && reloadPattern.test(pathname)) {
+            this.reloadChannelMappings();
+            res.writeHead(200);
+            res.end('OK');
+            return;
+          }
+
           const data = JSON.parse(body);
 
           // Route: /notify/{projectName}/{agentType} (fire-and-forget notification)
@@ -147,6 +156,23 @@ export class AgentBridge {
     });
 
     this.httpServer.listen(port, '127.0.0.1');
+  }
+
+  private reloadChannelMappings(): void {
+    stateManager.reload();
+    const projects = stateManager.listProjects();
+    const mappings: { channelId: string; projectName: string; agentType: string }[] = [];
+    for (const project of projects) {
+      for (const [agentType, channelId] of Object.entries(project.discordChannels)) {
+        if (channelId) {
+          mappings.push({ channelId, projectName: project.projectName, agentType });
+        }
+      }
+    }
+    if (mappings.length > 0) {
+      this.discord.registerChannelMappings(mappings);
+    }
+    console.log(`🔄 Reloaded channel mappings (${mappings.length} channels)`);
   }
 
   private async handleHookOutput(
@@ -224,19 +250,19 @@ export class AgentBridge {
       output = JSON.stringify(output, null, 2);
     }
 
-    const maxLength = 1900;
-    const truncatedOutput = output.length > maxLength
-      ? output.substring(0, maxLength) + '\n... (truncated)'
+    const brief = output.length > 200
+      ? output.substring(0, 200) + '...'
       : output;
 
-    return `🔧 **${toolName}** (${agentType})\n\`\`\`\n${truncatedOutput}\n\`\`\``;
+    return `**${agentType}** - 🔧 ${toolName}${brief ? `\n${brief}` : ''}`;
   }
 
   async setupProject(
     projectName: string,
     projectPath: string,
     agents: ProjectAgents,
-    channelDisplayName?: string
+    channelDisplayName?: string,
+    overridePort?: number
   ): Promise<{ channelName: string; channelId: string; agentName: string; tmuxSession: string }> {
     const guildId = stateManager.getGuildId();
     if (!guildId) {
@@ -266,7 +292,7 @@ export class AgentBridge {
     const channelId = channels[adapter.config.name];
 
     // Set environment variables on the tmux session so agent hooks can find the bridge
-    const port = config.hookServerPort || 18470;
+    const port = overridePort || config.hookServerPort || 18470;
     this.tmux.setSessionEnv(tmuxSession, 'AGENT_DISCORD_PROJECT', projectName);
     this.tmux.setSessionEnv(tmuxSession, 'AGENT_DISCORD_PORT', String(port));
 

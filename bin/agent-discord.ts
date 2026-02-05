@@ -356,12 +356,23 @@ program
         const adapter = agentRegistry.get(agentName)!;
         const channelDisplayName = `${adapter.config.displayName} - ${projectName}`;
         const agents = { [agentName]: true };
-        const result = await bridge.setupProject(projectName, projectPath, agents, channelDisplayName);
+        const result = await bridge.setupProject(projectName, projectPath, agents, channelDisplayName, port);
 
         console.log(chalk.green(`✅ Project created`));
         console.log(chalk.cyan(`   Channel: #${result.channelName}`));
 
         await bridge.stop();
+
+        // Notify the running daemon to reload channel mappings
+        try {
+          const http = await import('http');
+          await new Promise<void>((resolve) => {
+            const req = http.request(`http://127.0.0.1:${port}/reload`, { method: 'POST' }, () => resolve());
+            req.on('error', () => resolve());
+            req.setTimeout(2000, () => { req.destroy(); resolve(); });
+            req.end();
+          });
+        } catch { /* daemon will pick up on next restart */ }
       } else {
         // Existing project: just ensure tmux session exists
         const tmuxSession = tmux.getOrCreateSession(projectName);
