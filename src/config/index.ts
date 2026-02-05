@@ -68,7 +68,7 @@ export const config: BridgeConfig = {
   tmux: {
     sessionPrefix: process.env.TMUX_SESSION_PREFIX || 'agent-',
   },
-  hookServerPort: storedConfig.hookServerPort || (process.env.HOOK_SERVER_PORT ? parseInt(process.env.HOOK_SERVER_PORT, 10) : 3847),
+  hookServerPort: storedConfig.hookServerPort || (process.env.HOOK_SERVER_PORT ? parseInt(process.env.HOOK_SERVER_PORT, 10) : 18470),
 };
 
 export function validateConfig(): void {

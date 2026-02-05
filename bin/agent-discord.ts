@@ -160,7 +160,7 @@ program
       console.log(chalk.white('Configuration:'));
       console.log(chalk.gray(`   Config file: ${getConfigPath()}`));
       console.log(chalk.gray(`   Server ID: ${stateManager.getGuildId()}`));
-      console.log(chalk.gray(`   Hook port: ${config.hookServerPort || 3847}`));
+      console.log(chalk.gray(`   Hook port: ${config.hookServerPort || 18470}`));
 
       console.log(chalk.white('\nProjects to bridge:'));
       for (const project of activeProjects) {
@@ -280,7 +280,7 @@ program
 
       const projectPath = process.cwd();
       const projectName = options.name || basename(projectPath);
-      const port = config.hookServerPort || 3847;
+      const port = DaemonManager.getProjectPort(projectName);
 
       console.log(chalk.cyan(`\n🚀 agent-discord go — ${projectName}\n`));
 
@@ -329,17 +329,17 @@ program
         }
       }
 
-      // Ensure daemon is running
+      // Ensure daemon is running for this project
       const running = await DaemonManager.isRunning(port);
       if (!running) {
         console.log(chalk.gray('   Starting bridge daemon...'));
         const entryPoint = resolve(import.meta.dirname, '../src/daemon-entry.js');
-        DaemonManager.startDaemon(entryPoint);
+        DaemonManager.startDaemon(entryPoint, projectName, port);
         const ready = await DaemonManager.waitForReady(port);
         if (ready) {
           console.log(chalk.green(`✅ Bridge daemon started (port ${port})`));
         } else {
-          console.log(chalk.yellow(`⚠️  Daemon may not be ready yet. Check logs: ${DaemonManager.getLogFile()}`));
+          console.log(chalk.yellow(`⚠️  Daemon may not be ready yet. Check logs: ${DaemonManager.getLogFile(projectName)}`));
         }
       } else {
         console.log(chalk.green(`✅ Bridge daemon already running (port ${port})`));
@@ -406,7 +406,7 @@ program
       console.log(chalk.gray(`   Config file: ${getConfigPath()}`));
       console.log(chalk.gray(`   Server ID: ${stateManager.getGuildId() || '(not set)'}`));
       console.log(chalk.gray(`   Token: ${config.discord.token ? '****' + config.discord.token.slice(-4) : '(not set)'}`));
-      console.log(chalk.gray(`   Hook Port: ${config.hookServerPort || 3847}`));
+      console.log(chalk.gray(`   Hook Port: ${config.hookServerPort || 18470}`));
       console.log(chalk.cyan('\n🤖 Registered Agents:\n'));
       for (const adapter of agentRegistry.getAll()) {
         console.log(chalk.gray(`   - ${adapter.config.displayName} (${adapter.config.name})`));
@@ -461,7 +461,7 @@ program
     console.log(chalk.gray(`   Config file: ${getConfigPath()}`));
     console.log(chalk.gray(`   Server ID: ${stateManager.getGuildId() || '(not configured)'}`));
     console.log(chalk.gray(`   Token: ${config.discord.token ? '****' + config.discord.token.slice(-4) : '(not set)'}`));
-    console.log(chalk.gray(`   Hook Port: ${config.hookServerPort || 3847}`));
+    console.log(chalk.gray(`   Hook Port: ${config.hookServerPort || 18470}`));
 
     console.log(chalk.cyan('\n🤖 Registered Agents:\n'));
     for (const adapter of agentRegistry.getAll()) {
@@ -620,11 +620,9 @@ program
       console.log(chalk.green(`✅ Project removed from state`));
     }
 
-    // 4. Stop daemon if no more projects
-    const remaining = stateManager.listProjects();
-    if (remaining.length === 0) {
-      DaemonManager.stopDaemon();
-      console.log(chalk.green(`✅ Bridge daemon stopped (no projects left)`));
+    // 4. Stop this project's daemon
+    if (DaemonManager.stopDaemon(projectName)) {
+      console.log(chalk.green(`✅ Bridge daemon stopped`));
     }
 
     console.log(chalk.cyan('\n✨ Done\n'));

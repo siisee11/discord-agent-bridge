@@ -4,7 +4,7 @@
 # Config: ~/.codex/config.toml
 #   notify = ["/path/to/codex-post-tool.sh"]
 
-BRIDGE_PORT="${AGENT_DISCORD_PORT:-3847}"
+BRIDGE_PORT="${AGENT_DISCORD_PORT:-18470}"
 PROJECT_NAME="${AGENT_DISCORD_PROJECT:-}"
 
 # JSON is passed as first argument (not stdin like Claude/Gemini)

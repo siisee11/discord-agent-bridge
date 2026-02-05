@@ -1,5 +1,6 @@
 /**
  * Daemon manager for running bridge server in background
+ * Each project gets its own daemon process with separate port, PID file, and log file
  */
 
 import { spawn } from 'child_process';
@@ -9,10 +10,29 @@ import { join } from 'path';
 import { homedir } from 'os';
 
 const DAEMON_DIR = join(homedir(), '.discord-agent-bridge');
-const PID_FILE = join(DAEMON_DIR, 'bridge.pid');
-const LOG_FILE = join(DAEMON_DIR, 'bridge.log');
+const BASE_PORT = 18470;
+const PORT_RANGE = 1000;
 
 export class DaemonManager {
+  /**
+   * Get a deterministic port for a project name
+   */
+  static getProjectPort(projectName: string): number {
+    let hash = 0;
+    for (let i = 0; i < projectName.length; i++) {
+      hash = ((hash << 5) - hash + projectName.charCodeAt(i)) | 0;
+    }
+    return BASE_PORT + (Math.abs(hash) % PORT_RANGE);
+  }
+
+  private static pidFile(projectName: string): string {
+    return join(DAEMON_DIR, `${projectName}.pid`);
+  }
+
+  private static logFile(projectName: string): string {
+    return join(DAEMON_DIR, `${projectName}.log`);
+  }
+
   /**
    * Check if something is listening on the given port
    */
@@ -30,46 +50,53 @@ export class DaemonManager {
   }
 
   /**
-   * Start the bridge server as a detached background process
+   * Start the bridge server as a detached background process for a specific project
    */
-  static startDaemon(entryPoint: string): number {
+  static startDaemon(entryPoint: string, projectName: string, port: number): number {
     if (!existsSync(DAEMON_DIR)) {
       mkdirSync(DAEMON_DIR, { recursive: true });
     }
 
-    const out = openSync(LOG_FILE, 'a');
-    const err = openSync(LOG_FILE, 'a');
+    const logFile = DaemonManager.logFile(projectName);
+    const pidFile = DaemonManager.pidFile(projectName);
+
+    const out = openSync(logFile, 'a');
+    const err = openSync(logFile, 'a');
 
     const child = spawn('node', [entryPoint], {
       detached: true,
       stdio: ['ignore', out, err],
-      env: { ...process.env },
+      env: {
+        ...process.env,
+        HOOK_SERVER_PORT: String(port),
+      },
     });
 
     child.unref();
 
     const pid = child.pid!;
-    writeFileSync(PID_FILE, String(pid));
+    writeFileSync(pidFile, String(pid));
 
     return pid;
   }
 
   /**
-   * Stop the daemon by reading PID file and sending SIGTERM
+   * Stop the daemon for a specific project
    */
-  static stopDaemon(): boolean {
-    if (!existsSync(PID_FILE)) {
+  static stopDaemon(projectName: string): boolean {
+    const pidFile = DaemonManager.pidFile(projectName);
+
+    if (!existsSync(pidFile)) {
       return false;
     }
 
     try {
-      const pid = parseInt(readFileSync(PID_FILE, 'utf-8').trim(), 10);
+      const pid = parseInt(readFileSync(pidFile, 'utf-8').trim(), 10);
       process.kill(pid, 'SIGTERM');
-      unlinkSync(PID_FILE);
+      unlinkSync(pidFile);
       return true;
     } catch {
-      // Process might already be dead
-      try { unlinkSync(PID_FILE); } catch { /* ignore */ }
+      try { unlinkSync(pidFile); } catch { /* ignore */ }
       return false;
     }
   }
@@ -88,11 +115,11 @@ export class DaemonManager {
     return false;
   }
 
-  static getLogFile(): string {
-    return LOG_FILE;
+  static getLogFile(projectName: string): string {
+    return DaemonManager.logFile(projectName);
   }
 
-  static getPidFile(): string {
-    return PID_FILE;
+  static getPidFile(projectName: string): string {
+    return DaemonManager.pidFile(projectName);
   }
 }

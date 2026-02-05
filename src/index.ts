@@ -77,12 +77,12 @@ export class AgentBridge {
     this.startHookServer();
 
     console.log('✅ Discord Agent Bridge is running');
-    console.log(`📡 Hook server listening on port ${config.hookServerPort || 3847}`);
+    console.log(`📡 Hook server listening on port ${config.hookServerPort || 18470}`);
     console.log(`🤖 Registered agents: ${agentRegistry.getAll().map(a => a.config.displayName).join(', ')}`);
   }
 
   private startHookServer(): void {
-    const port = config.hookServerPort || 3847;
+    const port = config.hookServerPort || 18470;
 
     // Build regex pattern from registered agents
     const agentNames = agentRegistry.getAll().map(a => a.config.hookEndpoint).join('|');
@@ -266,7 +266,7 @@ export class AgentBridge {
     const channelId = channels[adapter.config.name];
 
     // Set environment variables on the tmux session so agent hooks can find the bridge
-    const port = config.hookServerPort || 3847;
+    const port = config.hookServerPort || 18470;
     this.tmux.setSessionEnv(tmuxSession, 'AGENT_DISCORD_PROJECT', projectName);
     this.tmux.setSessionEnv(tmuxSession, 'AGENT_DISCORD_PORT', String(port));
 

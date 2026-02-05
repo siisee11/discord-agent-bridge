@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Configuration
-BRIDGE_PORT="${AGENT_DISCORD_PORT:-3847}"
+BRIDGE_PORT="${AGENT_DISCORD_PORT:-18470}"
 PROJECT_NAME="${AGENT_DISCORD_PROJECT:-}"
 
 # Read hook input from stdin
