@@ -63,7 +63,12 @@ export class DaemonManager {
     const out = openSync(logFile, 'a');
     const err = openSync(logFile, 'a');
 
-    const child = spawn('node', [entryPoint], {
+    // Use caffeinate on macOS to prevent sleep while daemon is running
+    const isMac = process.platform === 'darwin';
+    const command = isMac ? 'caffeinate' : 'node';
+    const args = isMac ? ['-dims', 'node', entryPoint] : [entryPoint];
+
+    const child = spawn(command, args, {
       detached: true,
       stdio: ['ignore', out, err],
       env: {
