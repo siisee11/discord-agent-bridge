@@ -572,20 +572,62 @@ program
 // Stop command - stop a project
 program
   .command('stop [project]')
-  .description('Stop a project (kills tmux session)')
-  .action((projectName?: string) => {
+  .description('Stop a project (kills tmux session, deletes Discord channel)')
+  .option('--keep-channel', 'Keep Discord channel (only kill tmux)')
+  .action(async (projectName: string | undefined, options) => {
     if (!projectName) {
       projectName = basename(process.cwd());
     }
 
-    const sessionName = `agent-${projectName}`;
+    console.log(chalk.cyan(`\n🛑 Stopping project: ${projectName}\n`));
 
+    // 1. Kill tmux session
+    const sessionName = `agent-${projectName}`;
     try {
       execSync(`tmux kill-session -t ${sessionName}`, { stdio: 'ignore' });
-      console.log(chalk.green(`✅ Stopped session: ${sessionName}`));
+      console.log(chalk.green(`✅ tmux session killed: ${sessionName}`));
     } catch {
-      console.log(chalk.yellow(`Session ${sessionName} not running`));
+      console.log(chalk.gray(`   tmux session ${sessionName} not running`));
     }
+
+    // 2. Delete Discord channel (unless --keep-channel)
+    const project = stateManager.getProject(projectName);
+    if (project && !options.keepChannel) {
+      const channelIds = Object.values(project.discordChannels).filter(Boolean) as string[];
+      if (channelIds.length > 0) {
+        try {
+          validateConfig();
+          const client = new DiscordClient(config.discord.token);
+          await client.connect();
+
+          for (const channelId of channelIds) {
+            const deleted = await client.deleteChannel(channelId);
+            if (deleted) {
+              console.log(chalk.green(`✅ Discord channel deleted: ${channelId}`));
+            }
+          }
+
+          await client.disconnect();
+        } catch (error) {
+          console.log(chalk.yellow(`⚠️  Could not delete Discord channel: ${error instanceof Error ? error.message : String(error)}`));
+        }
+      }
+    }
+
+    // 3. Remove from state
+    if (project) {
+      stateManager.removeProject(projectName);
+      console.log(chalk.green(`✅ Project removed from state`));
+    }
+
+    // 4. Stop daemon if no more projects
+    const remaining = stateManager.listProjects();
+    if (remaining.length === 0) {
+      DaemonManager.stopDaemon();
+      console.log(chalk.green(`✅ Bridge daemon stopped (no projects left)`));
+    }
+
+    console.log(chalk.cyan('\n✨ Done\n'));
   });
 
 // Install hooks command

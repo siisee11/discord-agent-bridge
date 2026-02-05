@@ -35,6 +35,20 @@ export class AgentBridge {
     await this.discord.connect();
     console.log('✅ Discord connected');
 
+    // Load channel mappings from saved state
+    const projects = stateManager.listProjects();
+    const mappings: { channelId: string; projectName: string; agentType: string }[] = [];
+    for (const project of projects) {
+      for (const [agentType, channelId] of Object.entries(project.discordChannels)) {
+        if (channelId) {
+          mappings.push({ channelId, projectName: project.projectName, agentType });
+        }
+      }
+    }
+    if (mappings.length > 0) {
+      this.discord.registerChannelMappings(mappings);
+    }
+
     // Set up message routing
     this.discord.onMessage(async (agentType, content, projectName, channelId) => {
       console.log(`📨 [${projectName}/${agentType}] ${content.substring(0, 50)}...`);

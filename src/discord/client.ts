@@ -257,6 +257,19 @@ export class DiscordClient {
   }
 
   /**
+   * Register channel mappings from external source (e.g., state file)
+   */
+  registerChannelMappings(mappings: { channelId: string; projectName: string; agentType: string }[]): void {
+    for (const m of mappings) {
+      this.channelMapping.set(m.channelId, {
+        projectName: m.projectName,
+        agentType: m.agentType,
+      });
+      console.log(`Registered channel ${m.channelId} -> ${m.projectName}:${m.agentType}`);
+    }
+  }
+
+  /**
    * Get list of guilds the bot is in
    */
   getGuilds(): { id: string; name: string }[] {
@@ -271,6 +284,24 @@ export class DiscordClient {
    */
   getChannelMapping(): Map<string, ChannelInfo> {
     return new Map(this.channelMapping);
+  }
+
+  /**
+   * Delete a Discord channel by ID
+   */
+  async deleteChannel(channelId: string): Promise<boolean> {
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (channel?.isTextBased()) {
+        await (channel as TextChannel).delete();
+        this.channelMapping.delete(channelId);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error(`Failed to delete channel ${channelId}:`, error);
+      return false;
+    }
   }
 
   /**
