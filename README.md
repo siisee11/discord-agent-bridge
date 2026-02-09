@@ -29,6 +29,15 @@ The bridge uses a polling-based architecture that captures tmux pane content eve
 - **Type-Safe**: Written in TypeScript with dependency injection pattern
 - **Well-Tested**: 129 unit tests with Vitest
 
+## Supported Platforms
+
+| Platform | Supported | Notes |
+|----------|-----------|-------|
+| **macOS** | Yes | Fully supported |
+| **Linux** | Yes | Fully supported |
+| **Windows (WSL)** | Yes | Requires WSL with tmux installed |
+| **Windows (native)** | No | tmux is not available natively |
+
 ## Prerequisites
 
 - **Node.js**: Version 18 or higher
@@ -189,12 +198,14 @@ agent-discord start -p my-app             # Start a specific project
 agent-discord start -p my-app --attach    # Start and attach to tmux
 ```
 
-#### `stop`
+#### `stop [project]`
 
-Stop the AI agent for this project.
+Stop a project: kills tmux session, deletes Discord channel, and removes project state. Defaults to current directory name if project is not specified.
 
 ```bash
-agent-discord stop
+agent-discord stop                # Stop current directory's project
+agent-discord stop my-app         # Stop a specific project
+agent-discord stop --keep-channel # Keep Discord channel (only kill tmux)
 ```
 
 #### `status`
@@ -205,12 +216,13 @@ Show project status.
 agent-discord status
 ```
 
-#### `attach`
+#### `attach [project]`
 
-Attach to the tmux session for this project.
+Attach to a project's tmux session. Defaults to current directory name if project is not specified.
 
 ```bash
-agent-discord attach
+agent-discord attach              # Attach to current directory's project
+agent-discord attach my-app       # Attach to a specific project
 ```
 
 Press `Ctrl-b d` to detach from tmux without stopping the agent.

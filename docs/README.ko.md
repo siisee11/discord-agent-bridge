@@ -1,5 +1,7 @@
 # Discord Agent Bridge
 
+[English](../README.md) | [한국어](README.ko.md)
+
 AI 에이전트 CLI를 Discord로 연결하여 원격 모니터링 및 협업을 지원합니다.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -26,6 +28,15 @@ Discord Agent Bridge는 AI 코딩 어시스턴트(Claude Code, OpenCode)를 Disc
 - **풍부한 CLI**: 설정, 제어, 모니터링을 위한 직관적인 명령어
 - **타입 안전**: 의존성 주입 패턴으로 작성된 TypeScript
 - **충분한 테스트**: Vitest로 129개의 유닛 테스트
+
+## 지원 플랫폼
+
+| 플랫폼 | 지원 | 비고 |
+|--------|------|------|
+| **macOS** | Yes | 완벽 지원 |
+| **Linux** | Yes | 완벽 지원 |
+| **Windows (WSL)** | Yes | WSL에 tmux 설치 필요 |
+| **Windows (네이티브)** | No | tmux를 네이티브로 사용할 수 없음 |
 
 ## 사전 요구 사항
 
@@ -187,12 +198,14 @@ agent-discord start -p my-app             # 특정 프로젝트 시작
 agent-discord start -p my-app --attach    # 시작 후 tmux에 연결
 ```
 
-#### `stop`
+#### `stop [project]`
 
-이 프로젝트의 AI 에이전트를 중지합니다.
+프로젝트를 중지합니다: tmux 세션 종료, Discord 채널 삭제, 프로젝트 상태 제거. 프로젝트를 지정하지 않으면 현재 디렉토리 이름을 사용합니다.
 
 ```bash
-agent-discord stop
+agent-discord stop                # 현재 디렉토리의 프로젝트 중지
+agent-discord stop my-app         # 특정 프로젝트 중지
+agent-discord stop --keep-channel # Discord 채널 유지 (tmux만 종료)
 ```
 
 #### `status`
@@ -203,12 +216,13 @@ agent-discord stop
 agent-discord status
 ```
 
-#### `attach`
+#### `attach [project]`
 
-이 프로젝트의 tmux 세션에 연결합니다.
+프로젝트의 tmux 세션에 연결합니다. 프로젝트를 지정하지 않으면 현재 디렉토리 이름을 사용합니다.
 
 ```bash
-agent-discord attach
+agent-discord attach              # 현재 디렉토리의 프로젝트에 연결
+agent-discord attach my-app       # 특정 프로젝트에 연결
 ```
 
 tmux에서 에이전트를 중지하지 않고 분리하려면 `Ctrl-b d`를 누르세요.
