@@ -193,7 +193,7 @@ program
 program
   .command('init')
   .description('Initialize Discord bridge for current project')
-  .argument('<agent>', 'Agent to use (claude or opencode)')
+  .argument('<agent>', 'Agent to use (claude, codex, or opencode)')
   .argument('<description>', 'Channel description (e.g., "내 프로젝트 작업")')
   .option('-n, --name <name>', 'Project name (defaults to directory name)')
   .action(async (agentName: string, description: string, options) => {
@@ -260,7 +260,7 @@ program
 program
   .command('go')
   .description('Quick start: launch daemon, setup project, attach tmux')
-  .argument('[agent]', 'Agent to use (claude, opencode)')
+  .argument('[agent]', 'Agent to use (claude, codex, opencode)')
   .option('-n, --name <name>', 'Project name (defaults to directory name)')
   .option('--no-attach', 'Do not attach to tmux session')
   .option('--yolo', 'YOLO mode: run agent with --dangerously-skip-permissions (no approval needed)')
