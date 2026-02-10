@@ -196,6 +196,23 @@ describe('TmuxManager', () => {
       const firstCommand = executor.calls[0].command;
       expect(firstCommand).toContain("'echo '\\''test'\\'''");
     });
+
+    it('adds a short delay before Enter for codex window', () => {
+      tmux.sendKeysToWindow('agent-session', 'codex', 'hello');
+
+      expect(executor.calls).toHaveLength(1);
+      expect(executor.calls[0].command).toContain('tmux send-keys -t agent-session:codex');
+      expect(executor.calls[0].command).toContain('sleep');
+      expect(executor.calls[0].command).toContain('tmux send-keys -t agent-session:codex Enter');
+    });
+  });
+
+  describe('sendEnterToWindow', () => {
+    it('sends Enter to the specified window', () => {
+      tmux.sendEnterToWindow('agent-session', 'codex');
+      expect(executor.calls).toHaveLength(1);
+      expect(executor.calls[0].command).toContain('tmux send-keys -t agent-session:codex Enter');
+    });
   });
 
   describe('capturePaneFromWindow', () => {

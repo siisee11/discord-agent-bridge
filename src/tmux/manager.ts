@@ -15,6 +15,18 @@ export class TmuxManager {
     this.executor = executor || new ShellCommandExecutor();
   }
 
+  private getSubmitDelayMs(windowName: string): number {
+    // Codex is a full-screen TUI; sending Enter immediately after characters can be dropped
+    // depending on render/busy state. A short delay improves reliability.
+    if (windowName !== 'codex') return 0;
+
+    const raw = process.env.AGENT_DISCORD_SUBMIT_DELAY_MS;
+    if (!raw) return 75;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return 75;
+    return n;
+  }
+
   listSessions(): TmuxSession[] {
     try {
       const output = this.executor.exec('tmux list-sessions -F "#{session_name}|#{session_attached}|#{session_windows}|#{session_created}"');
@@ -125,11 +137,35 @@ export class TmuxManager {
     const escapedKeys = this.escapeShellArg(keys);
 
     try {
-      // Send keys and Enter separately for reliability
-      this.executor.exec(`tmux send-keys -t ${target} ${escapedKeys}`);
-      this.executor.exec(`tmux send-keys -t ${target} Enter`);
+      const delayMs = this.getSubmitDelayMs(windowName);
+      if (delayMs > 0) {
+        const delaySec = (delayMs / 1000).toFixed(3);
+        // One shell command so the delay is actually honored in-order.
+        this.executor.exec(
+          `tmux send-keys -t ${target} ${escapedKeys}; ` +
+          `sleep ${delaySec}; ` +
+          `tmux send-keys -t ${target} Enter`
+        );
+      } else {
+        // Send keys and Enter separately for reliability
+        this.executor.exec(`tmux send-keys -t ${target} ${escapedKeys}`);
+        this.executor.exec(`tmux send-keys -t ${target} Enter`);
+      }
     } catch (error) {
       throw new Error(`Failed to send keys to window '${windowName}' in session '${sessionName}': ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Send an Enter keypress to a specific window.
+   * Useful for TUIs that may drop a submit when busy.
+   */
+  sendEnterToWindow(sessionName: string, windowName: string): void {
+    const target = `${sessionName}:${windowName}`;
+    try {
+      this.executor.exec(`tmux send-keys -t ${target} Enter`);
+    } catch (error) {
+      throw new Error(`Failed to send Enter to window '${windowName}' in session '${sessionName}': ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
