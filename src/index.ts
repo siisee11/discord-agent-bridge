@@ -8,7 +8,7 @@ import { stateManager as defaultStateManager } from './state/index.js';
 import { config as defaultConfig } from './config/index.js';
 import { agentRegistry as defaultAgentRegistry, AgentRegistry } from './agents/index.js';
 import { CapturePoller } from './capture/index.js';
-import { cleanCapture } from './capture/parser.js';
+import { CodexSubmitter } from './codex/submitter.js';
 import { createServer } from 'http';
 import { parse } from 'url';
 import type { ProjectAgents } from './types/index.js';
@@ -18,6 +18,7 @@ import type { BridgeConfig } from './types/index.js';
 export interface AgentBridgeDeps {
   discord?: DiscordClient;
   tmux?: TmuxManager;
+  codexSubmitter?: CodexSubmitter;
   stateManager?: IStateManager;
   registry?: AgentRegistry;
   config?: BridgeConfig;
@@ -26,6 +27,7 @@ export interface AgentBridgeDeps {
 export class AgentBridge {
   private discord: DiscordClient;
   private tmux: TmuxManager;
+  private codexSubmitter: CodexSubmitter;
   private poller: CapturePoller;
   private httpServer?: ReturnType<typeof createServer>;
   private stateManager: IStateManager;
@@ -38,78 +40,8 @@ export class AgentBridge {
     this.tmux = deps?.tmux || new TmuxManager('agent-');
     this.stateManager = deps?.stateManager || defaultStateManager;
     this.registry = deps?.registry || defaultAgentRegistry;
+    this.codexSubmitter = deps?.codexSubmitter || new CodexSubmitter(this.tmux);
     this.poller = new CapturePoller(this.tmux, this.discord, 30000, this.stateManager);
-  }
-
-  private async sleep(ms: number): Promise<void> {
-    if (!ms || ms <= 0) return;
-    await new Promise((r) => setTimeout(r, ms));
-  }
-
-  private getEnvInt(name: string, defaultValue: number): number {
-    const raw = process.env[name];
-    if (!raw) return defaultValue;
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return defaultValue;
-    return Math.trunc(n);
-  }
-
-  private codexPromptPrefix(prompt: string): string {
-    // Keep it short to survive wrapping/truncation, but long enough to disambiguate.
-    return prompt.trim().replace(/\s+/g, ' ').slice(0, 32);
-  }
-
-  private codexCaptureShowsSubmittedPrompt(capture: string, prompt: string): boolean {
-    const prefix = this.codexPromptPrefix(prompt);
-    const lines = cleanCapture(capture).split('\n');
-    const tailLines = this.getEnvInt('AGENT_DISCORD_SUBMIT_CHECK_LINES', 120);
-    const tail = lines.slice(-Math.max(20, tailLines));
-
-    return tail.some((line) => {
-      const l = line.trimStart();
-      return l.startsWith('›') && l.includes(prefix);
-    });
-  }
-
-  private async submitToCodexWithRetry(tmuxSession: string, prompt: string): Promise<boolean> {
-    const windowName = 'codex';
-
-    const checkDelayMs = this.getEnvInt('AGENT_DISCORD_SUBMIT_CHECK_DELAY_MS', 150);
-    const retryDelayMs = this.getEnvInt('AGENT_DISCORD_SUBMIT_RETRY_DELAY_MS', 250);
-    const retries = this.getEnvInt('AGENT_DISCORD_SUBMIT_RETRIES', 4);
-
-    // Best-effort: capture before so we can check if a new submitted prompt appears.
-    let before = '';
-    try {
-      before = this.tmux.capturePaneFromWindow(tmuxSession, windowName);
-    } catch {
-      // If capture fails, just attempt send and let it throw elsewhere if tmux is gone.
-    }
-
-    // First attempt: type prompt + Enter (with codex delay built into tmux manager)
-    this.tmux.sendKeysToWindow(tmuxSession, windowName, prompt);
-    await this.sleep(checkDelayMs);
-
-    let after = this.tmux.capturePaneFromWindow(tmuxSession, windowName);
-    if (this.codexCaptureShowsSubmittedPrompt(after, prompt) && !this.codexCaptureShowsSubmittedPrompt(before, prompt)) {
-      return true;
-    }
-    if (this.codexCaptureShowsSubmittedPrompt(after, prompt)) {
-      // Already present (duplicate prompt); treat as success.
-      return true;
-    }
-
-    // Retry: only press Enter again (avoid duplicating typed text).
-    for (let i = 0; i < Math.max(0, retries); i++) {
-      this.tmux.sendEnterToWindow(tmuxSession, windowName);
-      await this.sleep(retryDelayMs);
-      after = this.tmux.capturePaneFromWindow(tmuxSession, windowName);
-      if (this.codexCaptureShowsSubmittedPrompt(after, prompt)) {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   /**
@@ -189,7 +121,7 @@ export class AgentBridge {
       // Send to tmux
       try {
         if (agentType === 'codex') {
-          const ok = await this.submitToCodexWithRetry(project.tmuxSession, sanitized);
+          const ok = await this.codexSubmitter.submit(project.tmuxSession, sanitized);
           if (!ok) {
             await this.discord.sendToChannel(
               channelId,

@@ -53,6 +53,7 @@ function createMockTmux() {
     getOrCreateSession: vi.fn().mockReturnValue('agent-test'),
     createWindow: vi.fn(),
     sendKeysToWindow: vi.fn(),
+    typeKeysToWindow: vi.fn(),
     sendEnterToWindow: vi.fn(),
     capturePaneFromWindow: vi.fn(),
     startAgentInWindow: vi.fn(),
@@ -239,6 +240,7 @@ describe('AgentBridge', () => {
       process.env.AGENT_DISCORD_SUBMIT_CHECK_DELAY_MS = '0';
       process.env.AGENT_DISCORD_SUBMIT_RETRY_DELAY_MS = '0';
       process.env.AGENT_DISCORD_SUBMIT_RETRIES = '2';
+      process.env.AGENT_DISCORD_SUBMIT_DELAY_MS = '0';
 
       const mockTmux = createMockTmux();
       bridge = new AgentBridge({
@@ -261,7 +263,7 @@ describe('AgentBridge', () => {
 
       // before, afterSend (not submitted), afterRetry (submitted)
       mockTmux.capturePaneFromWindow
-        .mockReturnValueOnce('Tip\n')
+        .mockReturnValueOnce('  hello\n')
         .mockReturnValueOnce('  hello\n')
         .mockReturnValueOnce('› hello\n');
 
@@ -270,10 +272,54 @@ describe('AgentBridge', () => {
 
       await cb('codex', 'hello', 'test-project', 'ch-123');
 
-      expect(mockTmux.sendKeysToWindow).toHaveBeenCalledWith('agent-test', 'codex', 'hello');
+      expect(mockTmux.typeKeysToWindow).toHaveBeenCalledWith('agent-test', 'codex', 'hello');
       expect(mockTmux.sendEnterToWindow).toHaveBeenCalled();
 
       // Should not send failure warning
+      const warningCalls = mockDiscord.sendToChannel.mock.calls
+        .map((c: any[]) => String(c[1] ?? ''))
+        .filter((msg) => msg.includes('Codex에 메시지를 제출하지 못했습니다'));
+      expect(warningCalls).toHaveLength(0);
+    });
+
+    it('treats /command as submitted when typed input disappears (no › echo)', async () => {
+      process.env.AGENT_DISCORD_SUBMIT_CHECK_DELAY_MS = '0';
+      process.env.AGENT_DISCORD_SUBMIT_RETRY_DELAY_MS = '0';
+      process.env.AGENT_DISCORD_SUBMIT_RETRIES = '1';
+      process.env.AGENT_DISCORD_SUBMIT_DELAY_MS = '0';
+
+      const mockTmux = createMockTmux();
+      bridge = new AgentBridge({
+        discord: mockDiscord,
+        tmux: mockTmux,
+        stateManager: mockStateManager,
+        registry: createMockRegistry(),
+        config: createMockConfig(),
+      });
+
+      mockStateManager.getProject.mockReturnValue({
+        projectName: 'test-project',
+        projectPath: '/test',
+        tmuxSession: 'agent-test',
+        discordChannels: { codex: 'ch-123' },
+        agents: { codex: true },
+        createdAt: new Date(),
+        lastActive: new Date(),
+      });
+
+      // typedCapture contains the command, afterCapture does not (command executed without echo)
+      mockTmux.capturePaneFromWindow
+        .mockReturnValueOnce('  /help\n')
+        .mockReturnValueOnce('Some help output...\n');
+
+      await bridge.start();
+      const cb = mockDiscord.onMessage.mock.calls[0][0];
+
+      await cb('codex', '/help', 'test-project', 'ch-123');
+
+      expect(mockTmux.typeKeysToWindow).toHaveBeenCalledWith('agent-test', 'codex', '/help');
+      expect(mockTmux.sendEnterToWindow).toHaveBeenCalled();
+
       const warningCalls = mockDiscord.sendToChannel.mock.calls
         .map((c: any[]) => String(c[1] ?? ''))
         .filter((msg) => msg.includes('Codex에 메시지를 제출하지 못했습니다'));
