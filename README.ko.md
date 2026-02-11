@@ -1,4 +1,4 @@
-# Discord Agent Bridge
+# Discode
 
 English version: [README.md](README.md)
 
@@ -13,7 +13,7 @@ AI 에이전트 CLI를 Discord에 연결하여 원격 모니터링 및 협업을
 
 ## 개요
 
-Discord Agent Bridge는 AI 코딩 어시스턴트(Claude Code, OpenCode)를 Discord에 연결하여 원격 모니터링과 협업을 가능하게 합니다. Discord 채널을 통해 AI 에이전트의 작업을 실시간으로 관찰하고, 팀과 진행 상황을 공유하며, 여러 프로젝트를 동시에 추적할 수 있습니다.
+Discode는 AI 코딩 어시스턴트(Claude Code, OpenCode)를 Discord에 연결하여 원격 모니터링과 협업을 가능하게 합니다. Discord 채널을 통해 AI 에이전트의 작업을 실시간으로 관찰하고, 팀과 진행 상황을 공유하며, 여러 프로젝트를 동시에 추적할 수 있습니다.
 
 이 브리지는 폴링 기반 아키텍처를 사용하여 30초마다 tmux 패인 내용을 캡처하고, 상태 변화를 감지하여, 전용 Discord 채널로 업데이트를 스트리밍합니다. 각 프로젝트는 고유한 채널을 가지며, 단일 글로벌 데몬이 모든 연결을 효율적으로 관리합니다.
 
@@ -46,14 +46,14 @@ Discord Agent Bridge는 AI 코딩 어시스턴트(Claude Code, OpenCode)를 Disc
 ### 전역 설치
 
 ```bash
-bun add -g agent-messenger-bridge
+bun add -g discode
 ```
 
 ### 소스에서 설치
 
 ```bash
-git clone https://github.com/siisee11/agent-messenger-bridge.git
-cd agent-messenger-bridge
+git clone https://github.com/siisee11/discode.git
+cd discode
 bun install
 bun run build
 bun link
@@ -65,7 +65,7 @@ bun link
 
 ```bash
 # Discord 봇 토큰으로 일회성 설정
-agent-bridge setup YOUR_DISCORD_BOT_TOKEN
+discode setup YOUR_DISCORD_BOT_TOKEN
 ```
 
 ### 2. 프로젝트 초기화
@@ -75,19 +75,19 @@ agent-bridge setup YOUR_DISCORD_BOT_TOKEN
 cd ~/projects/my-app
 
 # Claude Code로 초기화 (또는 'opencode')
-agent-bridge init claude "멋진 애플리케이션"
+discode init claude "멋진 애플리케이션"
 ```
 
 ### 3. 작업 시작
 
 ```bash
 # 빠른 시작: 데몬 + 프로젝트 + 연결을 한 번에
-agent-bridge go
+discode go
 
 # 또는 단계별로:
-agent-bridge daemon start    # 글로벌 데몬 시작
-agent-bridge start          # 이 프로젝트 시작
-agent-bridge attach         # tmux 세션에 연결
+discode daemon start    # 글로벌 데몬 시작
+discode start          # 이 프로젝트 시작
+discode attach         # tmux 세션에 연결
 ```
 
 이제 AI 에이전트가 tmux에서 실행되며, 30초마다 Discord로 출력이 스트리밍됩니다.
@@ -101,11 +101,11 @@ agent-bridge attach         # tmux 세션에 연결
 일회성 설정: 봇 토큰 저장, Discord 연결하여 서버 자동 감지, 설치된 에이전트 확인.
 
 ```bash
-agent-bridge setup YOUR_BOT_TOKEN
+discode setup YOUR_BOT_TOKEN
 ```
 
 설정 과정:
-1. 봇 토큰을 `~/.agent-messenger-bridge/config.json`에 저장
+1. 봇 토큰을 `~/.discode/config.json`에 저장
 2. Discord에 연결하여 봇이 참여한 서버를 자동 감지
 3. 봇이 여러 서버에 있으면 선택 프롬프트 표시
 4. 서버 ID 자동 저장
@@ -115,10 +115,10 @@ agent-bridge setup YOUR_BOT_TOKEN
 글로벌 데몬 프로세스 제어.
 
 ```bash
-agent-bridge daemon start    # 데몬 시작
-agent-bridge daemon stop     # 데몬 중지
-agent-bridge daemon restart  # 데몬 재시작
-agent-bridge daemon status   # 데몬 상태 확인
+discode daemon start    # 데몬 시작
+discode daemon stop     # 데몬 중지
+discode daemon restart  # 데몬 재시작
+discode daemon status   # 데몬 상태 확인
 ```
 
 #### `list`
@@ -126,7 +126,7 @@ agent-bridge daemon status   # 데몬 상태 확인
 등록된 모든 프로젝트 목록 표시.
 
 ```bash
-agent-bridge list
+discode list
 ```
 
 #### `agents`
@@ -134,7 +134,7 @@ agent-bridge list
 시스템에서 감지된 사용 가능한 AI 에이전트 목록 표시.
 
 ```bash
-agent-bridge agents
+discode agents
 ```
 
 #### `tui`
@@ -142,7 +142,7 @@ agent-bridge agents
 인터랙티브 터미널 UI를 엽니다. TUI 내부에서 `/session_new` (또는 `/new`)를 사용해 새로운 agent session을 만들 수 있습니다.
 
 ```bash
-agent-bridge tui
+discode tui
 ```
 
 #### `config [options]`
@@ -150,10 +150,10 @@ agent-bridge tui
 글로벌 설정 조회 및 수정.
 
 ```bash
-agent-bridge config --show              # 현재 설정 표시
-agent-bridge config --token NEW_TOKEN   # 봇 토큰 변경
-agent-bridge config --server SERVER_ID  # Discord 서버 ID 수동 설정
-agent-bridge config --port 18470        # 훅 서버 포트 설정
+discode config --show              # 현재 설정 표시
+discode config --token NEW_TOKEN   # 봇 토큰 변경
+discode config --server SERVER_ID  # Discord 서버 ID 수동 설정
+discode config --port 18470        # 훅 서버 포트 설정
 ```
 
 ### 프로젝트 명령어
@@ -165,8 +165,8 @@ agent-bridge config --port 18470        # 훅 서버 포트 설정
 현재 디렉토리를 프로젝트로 초기화.
 
 ```bash
-agent-bridge init claude "풀스택 웹 애플리케이션"
-agent-bridge init opencode "데이터 파이프라인 프로젝트"
+discode init claude "풀스택 웹 애플리케이션"
+discode init opencode "데이터 파이프라인 프로젝트"
 ```
 
 #### `start [options]`
@@ -174,9 +174,9 @@ agent-bridge init opencode "데이터 파이프라인 프로젝트"
 이 프로젝트의 AI 에이전트 시작.
 
 ```bash
-agent-bridge start                    # 일반 모드
-agent-bridge start --yolo            # YOLO 모드 (권한 확인 스킵)
-agent-bridge start --dangerously-skip-permissions  # --yolo와 동일
+discode start                    # 일반 모드
+discode start --yolo            # YOLO 모드 (권한 확인 스킵)
+discode start --dangerously-skip-permissions  # --yolo와 동일
 ```
 
 #### `stop`
@@ -184,7 +184,7 @@ agent-bridge start --dangerously-skip-permissions  # --yolo와 동일
 이 프로젝트의 AI 에이전트 중지.
 
 ```bash
-agent-bridge stop
+discode stop
 ```
 
 #### `status`
@@ -192,7 +192,7 @@ agent-bridge stop
 프로젝트 상태 표시.
 
 ```bash
-agent-bridge status
+discode status
 ```
 
 #### `attach`
@@ -200,7 +200,7 @@ agent-bridge status
 이 프로젝트의 tmux 세션에 연결.
 
 ```bash
-agent-bridge attach
+discode attach
 ```
 
 에이전트를 중지하지 않고 tmux에서 분리하려면 `Ctrl-b d`를 누르세요.
@@ -210,9 +210,9 @@ agent-bridge attach
 빠른 시작: 데몬 시작, 프로젝트 시작, 연결을 한 번에 수행.
 
 ```bash
-agent-bridge go              # 일반 모드
-agent-bridge go --yolo      # YOLO 모드
-agent-bridge go --sandbox   # 샌드박스 모드 (Docker 컨테이너에서 Claude Code 실행)
+discode go              # 일반 모드
+discode go --yolo      # YOLO 모드
+discode go --sandbox   # 샌드박스 모드 (Docker 컨테이너에서 Claude Code 실행)
 ```
 
 ## 작동 원리
@@ -260,7 +260,7 @@ agent-bridge go --sandbox   # 샌드박스 모드 (Docker 컨테이너에서 Cla
 
 ### 프로젝트 라이프사이클
 
-1. **Init**: 프로젝트 메타데이터와 함께 `.agent-bridge.json` 생성
+1. **Init**: 프로젝트 메타데이터와 함께 `.discode.json` 생성
 2. **Start**: 명명된 tmux 세션에서 AI 에이전트 실행
 3. **Polling**: 데몬이 tmux 출력을 캡처하여 Discord로 스트리밍
 4. **Stop**: tmux 세션 종료 및 정리
@@ -276,7 +276,7 @@ agent-bridge go --sandbox   # 샌드박스 모드 (Docker 컨테이너에서 Cla
 
 ### 에이전트 감지
 
-CLI는 `which <binary>`를 사용하여 설치된 에이전트를 자동으로 감지합니다. `agent-bridge agents`를 실행하여 시스템에서 사용 가능한 에이전트를 확인하세요.
+CLI는 `which <binary>`를 사용하여 설치된 에이전트를 자동으로 감지합니다. `discode agents`를 실행하여 시스템에서 사용 가능한 에이전트를 확인하세요.
 
 ### 커스텀 에이전트 추가
 
@@ -296,7 +296,7 @@ export interface AgentAdapter {
 
 ### 글로벌 설정
 
-`~/.agent-messenger-bridge/config.json`에 저장:
+`~/.discode/config.json`에 저장:
 
 ```json
 {
@@ -309,22 +309,22 @@ export interface AgentAdapter {
 `token`과 `serverId` 모두 필요합니다. `setup` 명령이 서버 ID를 자동 감지하며, 수동 설정도 가능합니다:
 
 ```bash
-agent-bridge config --show               # 현재 설정 확인
-agent-bridge config --server SERVER_ID    # 서버 ID 수동 설정
+discode config --show               # 현재 설정 확인
+discode config --server SERVER_ID    # 서버 ID 수동 설정
 ```
 
 ### 프로젝트 상태
 
-프로젝트 상태는 `~/.agent-messenger-bridge/state.json`에 저장되며 자동으로 관리됩니다.
+프로젝트 상태는 `~/.discode/state.json`에 저장되며 자동으로 관리됩니다.
 
 ### 환경 변수
 
 환경 변수로 설정을 오버라이드할 수 있습니다:
 
 ```bash
-DISCORD_BOT_TOKEN=token agent-bridge daemon start
-DISCORD_GUILD_ID=server_id agent-bridge go
-HOOK_SERVER_PORT=18470 agent-bridge go
+DISCORD_BOT_TOKEN=token discode daemon start
+DISCORD_GUILD_ID=server_id discode go
+HOOK_SERVER_PORT=18470 discode go
 ```
 
 ## 개발
@@ -356,7 +356,7 @@ bun run test:coverage # 커버리지 리포트
 ### 프로젝트 구조
 
 ```
-agent-messenger-bridge/
+discode/
 ├── src/
 │   ├── agents/           # 에이전트 어댑터 (Claude, OpenCode)
 │   ├── core/             # 핵심 로직 (데몬, 폴러, 상태)
@@ -403,14 +403,14 @@ const daemon = new DaemonManager(mockStorage);
 
 ### 봇이 연결되지 않음
 
-1. 토큰 확인: `agent-bridge config --show`
+1. 토큰 확인: `discode config --show`
 2. Discord Developer Portal에서 봇 권한 확인
 3. MessageContent 인텐트가 활성화되어 있는지 확인
-4. 데몬 재시작: `agent-bridge daemon stop && agent-bridge daemon start`
+4. 데몬 재시작: `discode daemon stop && discode daemon start`
 
 ### 에이전트가 감지되지 않음
 
-1. 사용 가능한 에이전트 확인: `agent-bridge agents`
+1. 사용 가능한 에이전트 확인: `discode agents`
 2. 에이전트 바이너리가 PATH에 있는지 확인: `which claude-code`
 3. 누락된 에이전트를 설치하고 재시도
 
@@ -418,11 +418,11 @@ const daemon = new DaemonManager(mockStorage);
 
 1. 세션이 존재하는지 확인: `tmux ls`
 2. 오래된 세션 종료: `tmux kill-session -t <session-name>`
-3. 프로젝트 재시작: `agent-bridge stop && agent-bridge start`
+3. 프로젝트 재시작: `discode stop && discode start`
 
 ### Discord에 메시지가 없음
 
-1. 데몬 상태 확인: `agent-bridge daemon status`
+1. 데몬 상태 확인: `discode daemon status`
 2. 데몬 로그 확인
 3. Discord 채널 권한 확인 (봇에게 Send Messages 권한 필요)
 
@@ -455,5 +455,5 @@ MIT License - 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
 ## 지원
 
-- 이슈: [GitHub Issues](https://github.com/siisee11/agent-messenger-bridge/issues)
+- 이슈: [GitHub Issues](https://github.com/siisee11/discode/issues)
 - Discord 봇 설정: [설정 가이드](docs/DISCORD_SETUP.ko.md)

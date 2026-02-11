@@ -1,5 +1,5 @@
 /**
- * Main entry point for agent-messenger-bridge
+ * Main entry point for discode
  */
 
 import { DiscordClient } from './discord/client.js';
@@ -83,7 +83,7 @@ export class AgentBridge {
   }
 
   async start(): Promise<void> {
-    console.log('🚀 Starting Discord Agent Bridge...');
+    console.log('🚀 Starting Discode...');
 
     // Connect to Discord
     await this.discord.connect();
@@ -184,7 +184,7 @@ export class AgentBridge {
     // Start capture poller (Agent → Discord via tmux capture)
     this.poller.start();
 
-    console.log('✅ Discord Agent Bridge is running');
+    console.log('✅ Discode is running');
     console.log(`📡 Server listening on port ${this.bridgeConfig.hookServerPort || 18470}`);
     console.log(`🤖 Registered agents: ${this.registry.getAll().map(a => a.config.displayName).join(', ')}`);
   }
@@ -332,7 +332,7 @@ export class AgentBridge {
   ): Promise<{ channelName: string; channelId: string; agentName: string; tmuxSession: string }> {
     const guildId = this.stateManager.getGuildId();
     if (!guildId) {
-      throw new Error('Server ID not configured. Run: agent-bridge config --server <id>');
+      throw new Error('Server ID not configured. Run: discode config --server <id>');
     }
 
     // Collect enabled agents (should be only one)

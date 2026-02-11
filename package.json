@@ -1,11 +1,11 @@
 {
-  "name": "agent-messenger-bridge",
+  "name": "discode",
   "version": "0.1.0",
   "description": "Bridge AI agent outputs to Discord via Claude Code hooks and tmux",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "agent-bridge": "./dist/bin/agent-bridge.js"
+    "discode": "./dist/bin/discode.js"
   },
   "scripts": {
     "dev": "tsx src/index.ts",

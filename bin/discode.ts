@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * CLI entry point for agent-messenger-bridge
+ * CLI entry point for discode
  */
 
 import yargs from 'yargs';
@@ -165,7 +165,7 @@ async function tuiCommand(options: TmuxCliOptions): Promise<void> {
       try {
         validateConfig();
         if (!stateManager.getGuildId()) {
-          append('⚠️ Not set up yet. Run: agent-bridge setup <token>');
+          append('⚠️ Not set up yet. Run: discode setup <token>');
           return false;
         }
 
@@ -215,7 +215,7 @@ async function tuiCommand(options: TmuxCliOptions): Promise<void> {
 
   const isBunRuntime = Boolean((process as { versions?: { bun?: string } }).versions?.bun);
   if (!isBunRuntime) {
-    throw new Error('TUI requires Bun runtime. Run with: bun dist/bin/agent-bridge.js');
+    throw new Error('TUI requires Bun runtime. Run with: bun dist/bin/discode.js');
   }
 
   const preloadModule = '@opentui/solid/preload';
@@ -269,7 +269,7 @@ async function tuiCommand(options: TmuxCliOptions): Promise<void> {
 
 async function setupCommand(token: string) {
   try {
-    console.log(chalk.cyan('\n🔧 Discord Agent Bridge Setup\n'));
+    console.log(chalk.cyan('\n🔧 Discode Setup\n'));
 
     saveConfig({ token });
     console.log(chalk.green('✅ Bot token saved'));
@@ -326,7 +326,7 @@ async function setupCommand(token: string) {
     console.log(chalk.cyan('\n✨ Setup complete!\n'));
     console.log(chalk.white('Next step:'));
     console.log(chalk.gray('   cd <your-project>'));
-    console.log(chalk.gray('   agent-bridge go\n'));
+    console.log(chalk.gray('   discode go\n'));
   } catch (error) {
     console.error(chalk.red('Setup failed:'), error);
     process.exit(1);
@@ -342,7 +342,7 @@ async function startCommand(options: TmuxCliOptions & { project?: string; attach
 
     if (projects.length === 0) {
       console.log(chalk.yellow('⚠️  No projects configured.'));
-      console.log(chalk.gray('   Run `agent-bridge init` in a project directory first.'));
+      console.log(chalk.gray('   Run `discode init` in a project directory first.'));
       process.exit(1);
     }
 
@@ -359,11 +359,11 @@ async function startCommand(options: TmuxCliOptions & { project?: string; attach
       // --attach requires --project
     if (options.attach && !options.project) {
       console.log(chalk.red('--attach requires --project option'));
-      console.log(chalk.gray('Example: agent-bridge start -p myproject --attach'));
+      console.log(chalk.gray('Example: discode start -p myproject --attach'));
       process.exit(1);
     }
 
-    console.log(chalk.cyan('\n🚀 Starting Discord Agent Bridge\n'));
+    console.log(chalk.cyan('\n🚀 Starting Discode\n'));
     console.log(chalk.white('Configuration:'));
     console.log(chalk.gray(`   Config file: ${getConfigPath()}`));
     console.log(chalk.gray(`   Server ID: ${stateManager.getGuildId()}`));
@@ -414,7 +414,7 @@ async function initCommand(agentName: string, description: string, options: Tmux
       // Check server ID
     if (!stateManager.getGuildId()) {
       console.error(chalk.red('Server ID not configured.'));
-      console.log(chalk.gray('Run: agent-bridge config --server <your-server-id>'));
+      console.log(chalk.gray('Run: discode config --server <your-server-id>'));
       process.exit(1);
     }
 
@@ -457,7 +457,7 @@ async function initCommand(agentName: string, description: string, options: Tmux
     console.log(chalk.green('✅ Environment variables auto-configured in tmux session'));
 
     console.log(chalk.white('\n🚀 Next step:\n'));
-    console.log(chalk.gray('   agent-bridge go'));
+    console.log(chalk.gray('   discode go'));
     console.log(chalk.cyan(`   Then send messages in Discord #${result.channelName}\n`));
 
     await bridge.stop();
@@ -476,7 +476,7 @@ async function goCommand(
     const effectiveConfig = applyTmuxCliOverrides(config, options);
 
     if (!stateManager.getGuildId()) {
-      console.error(chalk.red('Not set up yet. Run: agent-bridge setup <token>'));
+      console.error(chalk.red('Not set up yet. Run: discode setup <token>'));
       process.exit(1);
     }
 
@@ -484,7 +484,7 @@ async function goCommand(
     const projectName = options.name || basename(projectPath);
     const port = defaultDaemonManager.getPort();
 
-    console.log(chalk.cyan(`\n🚀 agent-bridge go — ${projectName}\n`));
+    console.log(chalk.cyan(`\n🚀 discode go — ${projectName}\n`));
 
       // Determine agent
     let agentName: string;
@@ -640,7 +640,7 @@ async function goCommand(
       return;
     }
 
-    console.log(chalk.gray(`\n   To attach later: agent-bridge attach ${projectName}\n`));
+    console.log(chalk.gray(`\n   To attach later: discode attach ${projectName}\n`));
   } catch (error) {
     console.error(chalk.red('Error:'), error);
     process.exit(1);
@@ -687,9 +687,9 @@ async function configCommand(options: { show?: boolean; server?: string; token?:
   if (!updated) {
     console.log(chalk.yellow('No options provided. Use --help to see available options.'));
     console.log(chalk.gray('\nExample:'));
-    console.log(chalk.gray('  agent-bridge config --token YOUR_BOT_TOKEN'));
-    console.log(chalk.gray('  agent-bridge config --server YOUR_SERVER_ID'));
-    console.log(chalk.gray('  agent-bridge config --show'));
+    console.log(chalk.gray('  discode config --token YOUR_BOT_TOKEN'));
+    console.log(chalk.gray('  discode config --server YOUR_SERVER_ID'));
+    console.log(chalk.gray('  discode config --show'));
   }
 }
 
@@ -699,7 +699,7 @@ function statusCommand(options: TmuxCliOptions) {
     const tmux = new TmuxManager(effectiveConfig.tmux.sessionPrefix);
     const sessions = tmux.listSessions();
 
-    console.log(chalk.cyan('\n📊 Discord Agent Bridge Status\n'));
+    console.log(chalk.cyan('\n📊 Discode Status\n'));
 
     console.log(chalk.white('Configuration:'));
     console.log(chalk.gray(`   Config file: ${getConfigPath()}`));
@@ -715,7 +715,7 @@ function statusCommand(options: TmuxCliOptions) {
     console.log(chalk.cyan('\n📂 Projects:\n'));
 
     if (projects.length === 0) {
-      console.log(chalk.gray('   No projects configured. Run `agent-bridge init` in a project directory.'));
+      console.log(chalk.gray('   No projects configured. Run `discode init` in a project directory.'));
     } else {
       for (const project of projects) {
         const sessionActive = sessions.some(s => s.name === project.tmuxSession);
@@ -909,7 +909,7 @@ async function stopCommand(
     }
 
     // Note: daemon is global and shared, don't stop it here
-    // Use `agent-bridge daemon stop` to stop the daemon
+    // Use `discode daemon stop` to stop the daemon
 
   console.log(chalk.cyan('\n✨ Done\n'));
 }
@@ -974,7 +974,7 @@ function addTmuxOptions<T>(y: Argv<T>) {
 }
 
 await yargs(hideBin(process.argv))
-  .scriptName('agent-bridge')
+  .scriptName('discode')
   .usage('$0 [command]')
   .version('0.1.0')
   .help()

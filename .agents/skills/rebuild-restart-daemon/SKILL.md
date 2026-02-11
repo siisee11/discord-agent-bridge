@@ -1,6 +1,6 @@
 ---
 name: rebuild-restart-daemon
-description: Rebuild and restart the Discord Agent Bridge daemon for the agent-messenger-bridge project. Use when Codex must apply local code changes to the running daemon, recover from stale daemon state, or verify daemon health after config or environment updates.
+description: Rebuild and restart the Discode daemon for the discode project. Use when Codex must apply local code changes to the running daemon, recover from stale daemon state, or verify daemon health after config or environment updates.
 ---
 
 # Rebuild Restart Daemon
@@ -42,13 +42,13 @@ Run:
 ```bash
 cd /path/to/discord-agent-bridge
 bun run build
-bun dist/bin/agent-bridge.js daemon stop
-bun dist/bin/agent-bridge.js daemon start
-bun dist/bin/agent-bridge.js daemon status
+bun dist/bin/discode.js daemon stop
+bun dist/bin/discode.js daemon start
+bun dist/bin/discode.js daemon status
 ```
 
 ## Troubleshooting
 
-- Inspect daemon log at `~/.agent-messenger-bridge/daemon.log`.
-- Inspect daemon pid at `~/.agent-messenger-bridge/daemon.pid`.
-- Re-run `bun dist/bin/agent-bridge.js daemon status` after resolving errors.
+- Inspect daemon log at `~/.discode/daemon.log`.
+- Inspect daemon pid at `~/.discode/daemon.pid`.
+- Re-run `bun dist/bin/discode.js daemon status` after resolving errors.

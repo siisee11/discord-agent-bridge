@@ -1,4 +1,4 @@
-# Discord Agent Bridge
+# Discode
 
 [English](README.md) | [한국어](docs/README.ko.md)
 
@@ -13,7 +13,7 @@ Bridge AI agent CLIs to Discord for remote monitoring and collaboration.
 
 ## Overview
 
-Discord Agent Bridge connects AI coding assistants (Claude Code, OpenCode) to Discord, enabling remote monitoring and collaboration. Watch your AI agents work in real-time through Discord channels, share progress with your team, and track multiple projects simultaneously.
+Discode connects AI coding assistants (Claude Code, OpenCode) to Discord, enabling remote monitoring and collaboration. Watch your AI agents work in real-time through Discord channels, share progress with your team, and track multiple projects simultaneously.
 
 The bridge uses a polling-based architecture that captures tmux pane content every 30 seconds, detects state changes, and streams updates to dedicated Discord channels. Each project gets its own channel, and a single global daemon manages all connections efficiently.
 
@@ -56,14 +56,14 @@ The bridge uses a polling-based architecture that captures tmux pane content eve
 ### Global install
 
 ```bash
-bun add -g agent-messenger-bridge
+bun add -g discode
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/siisee11/agent-messenger-bridge.git
-cd agent-messenger-bridge
+git clone https://github.com/siisee11/discode.git
+cd discode
 bun install
 bun run build
 bun link
@@ -75,14 +75,14 @@ bun link
 
 ```bash
 # One-time setup with your Discord bot token
-agent-bridge setup YOUR_DISCORD_BOT_TOKEN
+discode setup YOUR_DISCORD_BOT_TOKEN
 ```
 
 The `setup` command saves your token and auto-detects the Discord server ID. You can verify or change settings later:
 
 ```bash
-agent-bridge config --show              # View current configuration
-agent-bridge config --server SERVER_ID  # Change server ID manually
+discode config --show              # View current configuration
+discode config --server SERVER_ID  # Change server ID manually
 ```
 
 > **Note**: `setup` is required for initial configuration — it auto-detects the server ID by connecting to Discord. The `config` command only updates individual values without auto-detection.
@@ -93,15 +93,15 @@ agent-bridge config --server SERVER_ID  # Change server ID manually
 cd ~/projects/my-app
 
 # Just run go — that's it!
-agent-bridge go
+discode go
 ```
 
 `go` handles everything automatically: detects installed agents, starts the daemon, creates a Discord channel, launches the agent in tmux, and attaches you to the session.
 
 ```bash
-agent-bridge go claude        # Specify an agent explicitly
-agent-bridge go --yolo        # YOLO mode (skip permissions, Claude Code only)
-agent-bridge go --sandbox     # Sandbox mode (Docker isolation, Claude Code only)
+discode go claude        # Specify an agent explicitly
+discode go --yolo        # YOLO mode (skip permissions, Claude Code only)
+discode go --sandbox     # Sandbox mode (Docker isolation, Claude Code only)
 ```
 
 Your AI agent is now running in tmux, with output streaming to Discord every 30 seconds.
@@ -114,12 +114,12 @@ For more control over project configuration, use `init` to set up the project se
 cd ~/projects/my-app
 
 # Initialize with a specific agent and custom channel description
-agent-bridge init claude "My awesome application"
+discode init claude "My awesome application"
 
 # Then start step-by-step:
-agent-bridge daemon start    # Start global daemon
-agent-bridge start          # Start this project
-agent-bridge attach         # Attach to tmux session
+discode daemon start    # Start global daemon
+discode start          # Start this project
+discode attach         # Attach to tmux session
 ```
 
 ## CLI Reference
@@ -131,11 +131,11 @@ agent-bridge attach         # Attach to tmux session
 One-time setup: saves bot token, connects to Discord to auto-detect your server, and shows installed agents.
 
 ```bash
-agent-bridge setup YOUR_BOT_TOKEN
+discode setup YOUR_BOT_TOKEN
 ```
 
 The setup process will:
-1. Save your bot token to `~/.agent-messenger-bridge/config.json`
+1. Save your bot token to `~/.discode/config.json`
 2. Connect to Discord and detect which server(s) your bot is in
 3. If the bot is in multiple servers, prompt you to select one
 4. Save the server ID automatically
@@ -145,9 +145,9 @@ The setup process will:
 Control the global daemon process.
 
 ```bash
-agent-bridge daemon start    # Start daemon
-agent-bridge daemon stop     # Stop daemon
-agent-bridge daemon status   # Check daemon status
+discode daemon start    # Start daemon
+discode daemon stop     # Stop daemon
+discode daemon status   # Check daemon status
 ```
 
 #### `list`
@@ -155,7 +155,7 @@ agent-bridge daemon status   # Check daemon status
 List all registered projects.
 
 ```bash
-agent-bridge list
+discode list
 ```
 
 #### `agents`
@@ -163,7 +163,7 @@ agent-bridge list
 List available AI agents detected on your system.
 
 ```bash
-agent-bridge agents
+discode agents
 ```
 
 #### `tui`
@@ -171,7 +171,7 @@ agent-bridge agents
 Open interactive terminal UI. Use `/session_new` (or `/new`) inside the TUI to create a new agent session.
 
 ```bash
-agent-bridge tui
+discode tui
 ```
 
 #### `config [options]`
@@ -179,10 +179,10 @@ agent-bridge tui
 View or update global configuration.
 
 ```bash
-agent-bridge config --show              # Show current configuration
-agent-bridge config --token NEW_TOKEN   # Update bot token
-agent-bridge config --server SERVER_ID  # Set Discord server ID manually
-agent-bridge config --port 18470        # Set hook server port
+discode config --show              # Show current configuration
+discode config --token NEW_TOKEN   # Update bot token
+discode config --server SERVER_ID  # Set Discord server ID manually
+discode config --port 18470        # Set hook server port
 ```
 
 ### Project Commands
@@ -194,8 +194,8 @@ Run these commands from your project directory.
 Initialize current directory as a project.
 
 ```bash
-agent-bridge init claude "Full-stack web application"
-agent-bridge init opencode "Data pipeline project"
+discode init claude "Full-stack web application"
+discode init opencode "Data pipeline project"
 ```
 
 #### `start [options]`
@@ -203,9 +203,9 @@ agent-bridge init opencode "Data pipeline project"
 Start the bridge server for registered projects.
 
 ```bash
-agent-bridge start                        # Start all projects
-agent-bridge start -p my-app             # Start a specific project
-agent-bridge start -p my-app --attach    # Start and attach to tmux
+discode start                        # Start all projects
+discode start -p my-app             # Start a specific project
+discode start -p my-app --attach    # Start and attach to tmux
 ```
 
 #### `stop [project]`
@@ -213,9 +213,9 @@ agent-bridge start -p my-app --attach    # Start and attach to tmux
 Stop a project: kills tmux session, deletes Discord channel, and removes project state. Defaults to current directory name if project is not specified.
 
 ```bash
-agent-bridge stop                # Stop current directory's project
-agent-bridge stop my-app         # Stop a specific project
-agent-bridge stop --keep-channel # Keep Discord channel (only kill tmux)
+discode stop                # Stop current directory's project
+discode stop my-app         # Stop a specific project
+discode stop --keep-channel # Keep Discord channel (only kill tmux)
 ```
 
 #### `status`
@@ -223,7 +223,7 @@ agent-bridge stop --keep-channel # Keep Discord channel (only kill tmux)
 Show project status.
 
 ```bash
-agent-bridge status
+discode status
 ```
 
 #### `attach [project]`
@@ -231,8 +231,8 @@ agent-bridge status
 Attach to a project's tmux session. Defaults to current directory name if project is not specified.
 
 ```bash
-agent-bridge attach              # Attach to current directory's project
-agent-bridge attach my-app       # Attach to a specific project
+discode attach              # Attach to current directory's project
+discode attach my-app       # Attach to a specific project
 ```
 
 Press `Ctrl-b d` to detach from tmux without stopping the agent.
@@ -242,11 +242,11 @@ Press `Ctrl-b d` to detach from tmux without stopping the agent.
 Quick start: start daemon, setup project if needed, and attach to tmux. Works without `init` — auto-detects installed agents and creates the Discord channel automatically.
 
 ```bash
-agent-bridge go              # Auto-detect agent, setup & attach
-agent-bridge go claude       # Use a specific agent
-agent-bridge go --yolo       # YOLO mode (skip permissions, Claude Code only)
-agent-bridge go --sandbox    # Sandbox mode (Docker isolation, Claude Code only)
-agent-bridge go --no-attach  # Start without attaching to tmux
+discode go              # Auto-detect agent, setup & attach
+discode go claude       # Use a specific agent
+discode go --yolo       # YOLO mode (skip permissions, Claude Code only)
+discode go --sandbox    # Sandbox mode (Docker isolation, Claude Code only)
+discode go --no-attach  # Start without attaching to tmux
 ```
 
 ## How It Works
@@ -294,7 +294,7 @@ This approach is simpler and more reliable than hook-based systems, with minimal
 
 ### Project Lifecycle
 
-1. **Go / Init**: Registers project in `~/.agent-messenger-bridge/state.json` and creates a Discord channel
+1. **Go / Init**: Registers project in `~/.discode/state.json` and creates a Discord channel
 2. **Start**: Launches AI agent in a named tmux session
 3. **Polling**: Daemon captures tmux output and streams to Discord
 4. **Stop**: Terminates tmux session, deletes channel, and cleans up state
@@ -310,7 +310,7 @@ This approach is simpler and more reliable than hook-based systems, with minimal
 
 ### Agent Detection
 
-The CLI automatically detects installed agents using `command -v <binary>`. Run `agent-bridge agents` to see available agents on your system.
+The CLI automatically detects installed agents using `command -v <binary>`. Run `discode agents` to see available agents on your system.
 
 ### Adding Custom Agents
 
@@ -339,7 +339,7 @@ Register your adapter in `src/agents/index.ts`.
 
 ### Global Config
 
-Stored in `~/.agent-messenger-bridge/config.json`:
+Stored in `~/.discode/config.json`:
 
 ```json
 {
@@ -351,20 +351,20 @@ Stored in `~/.agent-messenger-bridge/config.json`:
 
 | Key | Required | Description | Default |
 |-----|----------|-------------|---------|
-| `token` | **Yes** | Discord bot token. Set via `agent-bridge setup <token>` or `config --token` | - |
+| `token` | **Yes** | Discord bot token. Set via `discode setup <token>` or `config --token` | - |
 | `serverId` | **Yes** | Discord server (guild) ID. Auto-detected by `setup`, or set via `config --server` | - |
 | `hookServerPort` | No | Port for the hook server | `18470` |
 
 ```bash
-agent-bridge config --show               # View current config
-agent-bridge config --token NEW_TOKEN     # Update bot token
-agent-bridge config --server SERVER_ID    # Set server ID manually
-agent-bridge config --port 18470          # Set hook server port
+discode config --show               # View current config
+discode config --token NEW_TOKEN     # Update bot token
+discode config --server SERVER_ID    # Set server ID manually
+discode config --port 18470          # Set hook server port
 ```
 
 ### Project State
 
-Project state is stored in `~/.agent-messenger-bridge/state.json` and managed automatically.
+Project state is stored in `~/.discode/state.json` and managed automatically.
 
 ### Environment Variables
 
@@ -381,8 +381,8 @@ Config values can be overridden with environment variables:
 | `HOOK_SERVER_PORT` | No | Port for the hook server | `18470` |
 
 ```bash
-DISCORD_BOT_TOKEN=token agent-bridge daemon start
-DISCORD_GUILD_ID=server_id agent-bridge go
+DISCORD_BOT_TOKEN=token discode daemon start
+DISCORD_GUILD_ID=server_id discode go
 ```
 
 ### tmux Session Mode (CLI)
@@ -390,7 +390,7 @@ DISCORD_GUILD_ID=server_id agent-bridge go
 You can also override tmux session behavior via CLI flags (no env vars needed):
 
 ```bash
-agent-bridge go --tmux-session-mode shared --tmux-shared-session-name bridge
+discode go --tmux-session-mode shared --tmux-shared-session-name bridge
 ```
 
 ## Development
@@ -422,8 +422,8 @@ Test suite includes 129 tests covering:
 ### Project Structure
 
 ```
-agent-messenger-bridge/
-├── bin/                  # CLI entry point (agent-bridge)
+discode/
+├── bin/                  # CLI entry point (discode)
 ├── src/
 │   ├── agents/           # Agent adapters (Claude, OpenCode)
 │   ├── capture/          # tmux capture, polling, state detection
@@ -472,14 +472,14 @@ const daemon = new DaemonManager(mockStorage);
 
 ### Bot not connecting
 
-1. Verify token: `agent-bridge config --show`
+1. Verify token: `discode config --show`
 2. Check bot permissions in Discord Developer Portal
 3. Ensure MessageContent intent is enabled
-4. Restart daemon: `agent-bridge daemon stop && agent-bridge daemon start`
+4. Restart daemon: `discode daemon stop && discode daemon start`
 
 ### Agent not detected
 
-1. Run `agent-bridge agents` to see available agents
+1. Run `discode agents` to see available agents
 2. Verify agent binary is in PATH: `which claude`
 3. Install missing agent and retry
 
@@ -487,11 +487,11 @@ const daemon = new DaemonManager(mockStorage);
 
 1. Check session exists: `tmux ls`
 2. Kill stale session: `tmux kill-session -t <session-name>`
-3. Restart project: `agent-bridge stop && agent-bridge start`
+3. Restart project: `discode stop && discode start`
 
 ### No messages in Discord
 
-1. Check daemon status: `agent-bridge daemon status`
+1. Check daemon status: `discode daemon status`
 2. Check daemon logs
 3. Check Discord channel permissions (bot needs Send Messages)
 
@@ -524,5 +524,5 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- Issues: [GitHub Issues](https://github.com/siisee11/agent-messenger-bridge/issues)
+- Issues: [GitHub Issues](https://github.com/siisee11/discode/issues)
 - Discord Bot Setup: [Setup Guide](docs/DISCORD_SETUP.md)

@@ -37,7 +37,7 @@ export class MessageHandler {
 
   private async handleHelp(message: Message): Promise<void> {
     const helpText = `
-**Discord Agent Bridge Commands**
+**Discode Commands**
 
 \`!agent status\` - Check bridge status
 \`!agent help\` - Show this help message

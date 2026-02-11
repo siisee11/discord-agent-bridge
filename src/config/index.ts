@@ -26,7 +26,7 @@ export class ConfigManager {
   constructor(storage?: IStorage, env?: IEnvironment, configDir?: string) {
     this.storage = storage || new FileStorage();
     this.env = env || new SystemEnvironment();
-    this.configDir = configDir || join(this.env.homedir(), '.agent-messenger-bridge');
+    this.configDir = configDir || join(this.env.homedir(), '.discode');
     this.configFile = join(this.configDir, 'config.json');
   }
 
@@ -99,7 +99,7 @@ export class ConfigManager {
     if (!this.config.discord.token) {
       throw new Error(
         'Discord bot token not configured.\n' +
-        'Run: agent-bridge config --token <your-token>\n' +
+        'Run: discode config --token <your-token>\n' +
         'Or set DISCORD_BOT_TOKEN environment variable'
       );
     }

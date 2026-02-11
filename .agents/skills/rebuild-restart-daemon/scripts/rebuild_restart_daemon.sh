@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Rebuild and restart agent-bridge daemon.
+Rebuild and restart discode daemon.
 
 Usage:
   rebuild_restart_daemon.sh [--repo <path>] [--skip-build] [--dry-run]
@@ -77,12 +77,12 @@ else
 fi
 
 echo "[2/4] Stop daemon"
-run_cmd bun dist/bin/agent-bridge.js daemon stop
+run_cmd bun dist/bin/discode.js daemon stop
 
 echo "[3/4] Start daemon"
-run_cmd bun dist/bin/agent-bridge.js daemon start
+run_cmd bun dist/bin/discode.js daemon start
 
 echo "[4/4] Check daemon status"
-run_cmd bun dist/bin/agent-bridge.js daemon status
+run_cmd bun dist/bin/discode.js daemon status
 
-echo "Done. Log: ~/.agent-messenger-bridge/daemon.log"
+echo "Done. Log: ~/.discode/daemon.log"

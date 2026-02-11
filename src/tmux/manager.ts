@@ -7,7 +7,7 @@ import type { ICommandExecutor } from '../types/interfaces.js';
 import { ShellCommandExecutor } from '../infra/shell.js';
 import { escapeShellArg } from '../infra/shell-escape.js';
 
-const STATUS_PANE_TITLE = 'agent-bridge-status';
+const STATUS_PANE_TITLE = 'discode-status';
 
 export class TmuxManager {
   private sessionPrefix: string;
