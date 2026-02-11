@@ -34,17 +34,18 @@ function escapeShellArg(arg: string): string {
 function attachToTmux(sessionName: string, windowName?: string): void {
   const sessionTarget = sessionName;
   const windowTarget = windowName ? `${sessionName}:${windowName}` : undefined;
+  const tmuxAction = process.env.TMUX ? 'switch-client' : 'attach-session';
 
   if (!windowTarget) {
-    execSync(`tmux attach-session -t ${escapeShellArg(sessionTarget)}`, { stdio: 'inherit' });
+    execSync(`tmux ${tmuxAction} -t ${escapeShellArg(sessionTarget)}`, { stdio: 'inherit' });
     return;
   }
 
   try {
-    execSync(`tmux attach-session -t ${escapeShellArg(windowTarget)}`, { stdio: 'inherit' });
+    execSync(`tmux ${tmuxAction} -t ${escapeShellArg(windowTarget)}`, { stdio: 'inherit' });
   } catch {
     console.log(chalk.yellow(`⚠️ Window '${windowName}' not found, attaching to session '${sessionName}' instead.`));
-    execSync(`tmux attach-session -t ${escapeShellArg(sessionTarget)}`, { stdio: 'inherit' });
+    execSync(`tmux ${tmuxAction} -t ${escapeShellArg(sessionTarget)}`, { stdio: 'inherit' });
   }
 }
 
@@ -233,6 +234,12 @@ async function tuiCommand(options: TmuxCliOptions): Promise<void> {
   const mod = await import(sourceUrl.href);
   await mod.runTui({
     onCommand: handler,
+    onAttachProject: async (project: string) => {
+      attachCommand(project, {
+        tmuxSessionMode: options.tmuxSessionMode,
+        tmuxSharedSessionName: options.tmuxSharedSessionName,
+      });
+    },
     onStopProject: async (project: string) => {
       await stopCommand(project, {
         tmuxSessionMode: options.tmuxSessionMode,
@@ -246,13 +253,15 @@ async function tuiCommand(options: TmuxCliOptions): Promise<void> {
         const window = project.tmuxWindows?.[agentName] || agentName;
         const channelId = project.discordChannels[agentName];
         const channelBase = channelId ? `discord#${agentName}-${project.projectName}` : 'not connected';
+        const sessionUp = tmux.sessionExistsFull(project.tmuxSession);
+        const windowUp = sessionUp ? tmux.windowExists(project.tmuxSession, window) : false;
         return {
           project: project.projectName,
           session: project.tmuxSession,
           window,
           ai: adapter?.config.displayName || agentName,
           channel: channelBase,
-          open: tmux.sessionExistsFull(project.tmuxSession),
+          open: windowUp,
         };
       }),
   });
@@ -600,6 +609,22 @@ async function goCommand(
       // Summary
     const projectState = stateManager.getProject(projectName);
     const sessionName = projectState?.tmuxSession || `${effectiveConfig.tmux.sessionPrefix}${projectName}`;
+    if (projectState) {
+      const statusWindowName = projectState.tmuxWindows?.[agentName] || agentName;
+      const statusRunner = resolve(import.meta.dirname, './tui-statusbar.js');
+      const statusAi = agentRegistry.get(agentName)?.config.displayName || agentName;
+      const statusChannel = `discord#${agentName}-${projectName}`;
+      const statusCommand =
+        `AGENT_STATUS_AI=${escapeShellArg(statusAi)} ` +
+        `AGENT_STATUS_CWD=${escapeShellArg(projectPath)} ` +
+        `AGENT_STATUS_CHANNEL=${escapeShellArg(statusChannel)} ` +
+        `bun ${escapeShellArg(statusRunner)}`;
+      try {
+        tmux.ensureStatusPane(sessionName, statusWindowName, projectPath, statusChannel, statusCommand);
+      } catch (error) {
+        console.log(chalk.yellow(`⚠️ Could not start status bar pane: ${error instanceof Error ? error.message : String(error)}`));
+      }
+    }
     console.log(chalk.cyan('\n✨ Ready!\n'));
     console.log(chalk.gray(`   Project:  ${projectName}`));
     console.log(chalk.gray(`   Session:  ${sessionName}`));
@@ -719,23 +744,48 @@ function statusCommand(options: TmuxCliOptions) {
   console.log('');
 }
 
-function listCommand() {
+function listCommand(options?: { prune?: boolean }) {
   const projects = stateManager.listProjects();
+  const tmux = new TmuxManager(config.tmux.sessionPrefix);
+  const prune = !!options?.prune;
 
     if (projects.length === 0) {
       console.log(chalk.gray('No projects configured.'));
       return;
     }
 
+    const pruned: string[] = [];
     console.log(chalk.cyan('\n📂 Configured Projects:\n'));
     for (const project of projects) {
       const agentName = Object.entries(project.agents)
         .find(([_, enabled]) => enabled)?.[0];
       const adapter = agentName ? agentRegistry.get(agentName) : null;
+      const windowName = agentName ? (project.tmuxWindows?.[agentName] || agentName) : undefined;
+      const sessionUp = tmux.sessionExistsFull(project.tmuxSession);
+      const windowUp = sessionUp && !!windowName ? tmux.windowExists(project.tmuxSession, windowName) : false;
+      const status = windowUp ? 'running' : sessionUp ? 'session only' : 'stale';
+
+      if (prune && status !== 'running') {
+        stateManager.removeProject(project.projectName);
+        pruned.push(project.projectName);
+        continue;
+      }
 
       console.log(chalk.white(`  • ${project.projectName}`));
       console.log(chalk.gray(`    Agent: ${adapter?.config.displayName || agentName || 'none'}`));
       console.log(chalk.gray(`    Path: ${project.projectPath}`));
+      console.log(chalk.gray(`    Status: ${status}`));
+      if (windowName) {
+        console.log(chalk.gray(`    tmux: ${project.tmuxSession}:${windowName}`));
+      }
+    }
+
+    if (prune) {
+      if (pruned.length > 0) {
+        console.log(chalk.green(`\n✅ Pruned ${pruned.length} project(s): ${pruned.join(', ')}`));
+      } else {
+        console.log(chalk.gray('\nNo stale projects to prune.'));
+      }
     }
   console.log('');
 }
@@ -1012,8 +1062,18 @@ await yargs(hideBin(process.argv))
         tmuxSharedSessionName: argv.tmuxSharedSessionName,
       })
   )
-  .command('list', 'List all configured projects', () => {}, () => listCommand())
-  .command('ls', false, () => {}, () => listCommand())
+  .command(
+    'list',
+    'List all configured projects',
+    (y: Argv) => y.option('prune', { type: 'boolean', describe: 'Remove projects whose tmux window is not running' }),
+    (argv: any) => listCommand({ prune: argv.prune })
+  )
+  .command(
+    'ls',
+    false,
+    (y: Argv) => y.option('prune', { type: 'boolean', describe: 'Remove projects whose tmux window is not running' }),
+    (argv: any) => listCommand({ prune: argv.prune })
+  )
   .command('agents', 'List available AI agent adapters', () => {}, () => agentsCommand())
   .command(
     'attach [project]',

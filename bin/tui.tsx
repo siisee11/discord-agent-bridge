@@ -8,6 +8,7 @@ import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-j
 type TuiInput = {
   onCommand: (command: string, append: (line: string) => void) => Promise<boolean | void>;
   onStopProject: (project: string) => Promise<void>;
+  onAttachProject: (project: string) => Promise<void>;
   getProjects: () => Array<{
     project: string;
     session: string;
@@ -57,6 +58,8 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
   const [paletteOpen, setPaletteOpen] = createSignal(false);
   const [paletteQuery, setPaletteQuery] = createSignal('');
   const [paletteSelected, setPaletteSelected] = createSignal(0);
+  const [newOpen, setNewOpen] = createSignal(false);
+  const [newSelected, setNewSelected] = createSignal(0);
   const [stopOpen, setStopOpen] = createSignal(false);
   const [stopSelected, setStopSelected] = createSignal(0);
   const [projects, setProjects] = createSignal<Array<{
@@ -75,6 +78,21 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
     const names = new Set<string>();
     openProjects().forEach((item) => names.add(item.project));
     return Array.from(names).sort((a, b) => a.localeCompare(b));
+  });
+  const newChoices = createMemo(() => {
+    const existing = openProjects()
+      .map((item) => item.project)
+      .filter((value, index, arr) => arr.indexOf(value) === index)
+      .sort((a, b) => a.localeCompare(b))
+      .map((project) => ({
+        type: 'existing' as const,
+        project,
+        label: `Use existing session: ${project}`,
+      }));
+    return [
+      { type: 'create' as const, label: 'Create new session' },
+      ...existing,
+    ];
   });
   const sessionTree = createMemo(() => {
     const groups = new Map<string, Array<{ window: string; ai: string; channel: string }>>();
@@ -162,6 +180,12 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
   const executePaletteSelection = async () => {
     const item = paletteMatches()[paletteSelected()];
     if (!item) return;
+    if (item.command === '/new' || item.command === '/session_new') {
+      closeCommandPalette();
+      setNewOpen(true);
+      setNewSelected(0);
+      return;
+    }
     if (item.command === '/stop') {
       closeCommandPalette();
       setStopOpen(true);
@@ -185,6 +209,33 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
     }, 1);
   };
 
+  const closeNewDialog = () => {
+    setNewOpen(false);
+    setNewSelected(0);
+    setTimeout(() => {
+      if (!textarea || textarea.isDestroyed) return;
+      textarea.focus();
+    }, 1);
+  };
+
+  const clampNewSelection = (offset: number) => {
+    const items = newChoices();
+    if (items.length === 0) return;
+    const next = (newSelected() + offset + items.length) % items.length;
+    setNewSelected(next);
+  };
+
+  const executeNewSelection = async () => {
+    const choice = newChoices()[newSelected()];
+    if (!choice) return;
+    closeNewDialog();
+    if (choice.type === 'create') {
+      await props.input.onCommand('/new', () => {});
+      return;
+    }
+    await props.input.onAttachProject(choice.project);
+  };
+
   const clampStopSelection = (offset: number) => {
     const items = stoppableProjects();
     if (items.length === 0) return;
@@ -205,6 +256,12 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
     textarea?.setText('');
     setValue('');
     if (!command) return;
+
+    if (command === 'new' || command === '/new' || command === '/session_new') {
+      setNewOpen(true);
+      setNewSelected(0);
+      return;
+    }
 
     if (command === 'stop' || command === '/stop') {
       setStopOpen(true);
@@ -298,6 +355,29 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
       }
     }
 
+    if (newOpen()) {
+      if (evt.name === 'escape') {
+        evt.preventDefault();
+        closeNewDialog();
+        return;
+      }
+      if (evt.name === 'up' || (evt.ctrl && evt.name === 'p')) {
+        evt.preventDefault();
+        clampNewSelection(-1);
+        return;
+      }
+      if (evt.name === 'down' || (evt.ctrl && evt.name === 'n')) {
+        evt.preventDefault();
+        clampNewSelection(1);
+        return;
+      }
+      if (evt.name === 'return') {
+        evt.preventDefault();
+        void executeNewSelection();
+        return;
+      }
+    }
+
     if (evt.ctrl && evt.name === 'c') {
       evt.preventDefault();
       renderer.destroy();
@@ -364,6 +444,48 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
                 </box>
               )}
             </For>
+          </box>
+        </box>
+      </Show>
+
+      <Show when={newOpen()}>
+        <box
+          width={dims().width}
+          height={dims().height}
+          backgroundColor={RGBA.fromInts(0, 0, 0, 150)}
+          position="absolute"
+          left={0}
+          top={0}
+          alignItems="center"
+          paddingTop={Math.floor(dims().height / 4)}
+        >
+          <box
+            width={Math.max(50, Math.min(70, dims().width - 2))}
+            backgroundColor={palette.panel}
+            flexDirection="column"
+            paddingTop={1}
+            paddingBottom={1}
+          >
+            <box paddingLeft={4} paddingRight={4} flexDirection="row" justifyContent="space-between">
+              <text fg={palette.primary} attributes={TextAttributes.BOLD}>New session</text>
+              <text fg={palette.muted}>esc</text>
+            </box>
+            <For each={newChoices().slice(0, 12)}>
+              {(item, index) => (
+                <box
+                  paddingLeft={3}
+                  paddingRight={1}
+                  paddingTop={index() === 0 ? 1 : 0}
+                  backgroundColor={newSelected() === index() ? palette.selectedBg : palette.panel}
+                >
+                  <text fg={newSelected() === index() ? palette.selectedFg : palette.text}>{item.label}</text>
+                </box>
+              )}
+            </For>
+            <box paddingLeft={4} paddingRight={2} paddingTop={1}>
+              <text fg={palette.text}>Select </text>
+              <text fg={palette.muted}>enter</text>
+            </box>
           </box>
         </box>
       </Show>
@@ -496,7 +618,7 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
                 setSelected(0);
               }}
               onKeyDown={(event) => {
-                if (paletteOpen() || stopOpen()) {
+                if (paletteOpen() || stopOpen() || newOpen()) {
                   event.preventDefault();
                   return;
                 }

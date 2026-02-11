@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/daemon-entry.ts', 'bin/agent-bridge.ts'],
+  entry: ['src/index.ts', 'src/daemon-entry.ts', 'bin/agent-bridge.ts', 'bin/tui-statusbar.ts'],
   format: ['esm'],
   dts: true,
   clean: true,

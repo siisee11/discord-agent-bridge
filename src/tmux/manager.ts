@@ -7,6 +7,8 @@ import type { ICommandExecutor } from '../types/interfaces.js';
 import { ShellCommandExecutor } from '../infra/shell.js';
 import { escapeShellArg } from '../infra/shell-escape.js';
 
+const STATUS_PANE_TITLE = 'agent-bridge-status';
+
 export class TmuxManager {
   private sessionPrefix: string;
   private executor: ICommandExecutor;
@@ -139,6 +141,16 @@ export class TmuxManager {
     }
   }
 
+  windowExists(sessionName: string, windowName: string): boolean {
+    try {
+      const escapedTarget = escapeShellArg(`${sessionName}:${windowName}`);
+      this.executor.execVoid(`tmux list-panes -t ${escapedTarget}`, { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Resolve a tmux target for a window.
    *
@@ -156,13 +168,31 @@ export class TmuxManager {
 
     try {
       const escapedBaseTarget = escapeShellArg(baseTarget);
-      const output = this.executor.exec(`tmux list-panes -t ${escapedBaseTarget} -F "#{pane_index}"`);
-      const paneIndexes = output
+      const output = this.executor.exec(`tmux list-panes -t ${escapedBaseTarget} -F "#{pane_index}|#{pane_title}"`);
+      const panes = output
         .trim()
         .split('\n')
         .map((line) => line.trim())
-        .filter((line) => /^\d+$/.test(line))
-        .map((line) => parseInt(line, 10));
+        .map((line) => {
+          const [indexRaw, titleRaw] = line.split('|');
+          const index = /^\d+$/.test(indexRaw) ? parseInt(indexRaw, 10) : NaN;
+          return {
+            index,
+            title: titleRaw || '',
+          };
+        })
+        .filter((pane) => Number.isFinite(pane.index));
+
+      const nonStatusPaneIndexes = panes
+        .filter((pane) => pane.title !== STATUS_PANE_TITLE)
+        .map((pane) => pane.index);
+
+      if (nonStatusPaneIndexes.length > 0) {
+        const firstNonStatusPane = Math.min(...nonStatusPaneIndexes);
+        return `${baseTarget}.${firstNonStatusPane}`;
+      }
+
+      const paneIndexes = panes.map((pane) => pane.index);
 
       if (paneIndexes.length > 0) {
         const firstPane = Math.min(...paneIndexes);
@@ -173,6 +203,53 @@ export class TmuxManager {
     }
 
     return baseTarget;
+  }
+
+  private findStatusPaneTarget(sessionName: string, windowName: string): string | undefined {
+    const baseTarget = `${sessionName}:${windowName}`;
+    const escapedBaseTarget = escapeShellArg(baseTarget);
+
+    try {
+      const output = this.executor.exec(`tmux list-panes -t ${escapedBaseTarget} -F "#{pane_index}|#{pane_title}"`);
+      const match = output
+        .trim()
+        .split('\n')
+        .map((line) => line.trim())
+        .find((line) => line.endsWith(`|${STATUS_PANE_TITLE}`));
+
+      if (!match) return undefined;
+      const [indexRaw] = match.split('|');
+      if (!/^\d+$/.test(indexRaw)) return undefined;
+      return `${baseTarget}.${indexRaw}`;
+    } catch {
+      return undefined;
+    }
+  }
+
+  ensureStatusPane(sessionName: string, windowName: string, cwd: string, channel: string, statusCommand?: string): void {
+    const baseTarget = `${sessionName}:${windowName}`;
+    const line = `cwd: ${cwd} | channel: ${channel}`;
+    const script = `while true; do printf '\\033[2K%s\\n' ${escapeShellArg(line)}; sleep 2; done`;
+    const command = statusCommand || `bash -lc ${escapeShellArg(script)}`;
+
+    const existingStatusTarget = this.findStatusPaneTarget(sessionName, windowName);
+    if (existingStatusTarget) {
+      const escapedStatusTarget = escapeShellArg(existingStatusTarget);
+      this.executor.exec(`tmux respawn-pane -k -t ${escapedStatusTarget} ${escapeShellArg(command)}`);
+      return;
+    }
+
+    const activeTarget = this.resolveWindowTarget(sessionName, windowName);
+    const paneIndexOutput = this.executor.exec(
+      `tmux split-window -P -F "#{pane_index}" -t ${escapeShellArg(activeTarget)} -v -l 1 ${escapeShellArg(command)}`,
+    );
+    const paneIndex = paneIndexOutput.trim();
+    if (/^\d+$/.test(paneIndex)) {
+      const statusTarget = `${baseTarget}.${paneIndex}`;
+      this.executor.exec(`tmux select-pane -t ${escapeShellArg(statusTarget)} -T ${escapeShellArg(STATUS_PANE_TITLE)}`);
+    }
+
+    this.executor.exec(`tmux select-pane -t ${escapeShellArg(activeTarget)}`);
   }
 
   /**
