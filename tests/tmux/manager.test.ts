@@ -370,6 +370,9 @@ describe('TmuxManager', () => {
         if (command.includes('list-panes')) {
           return '0\tcodex\tcodex';
         }
+        if (command.includes('display-message')) {
+          return '220';
+        }
         if (command.includes('split-window')) {
           return '1';
         }
@@ -378,8 +381,33 @@ describe('TmuxManager', () => {
 
       tmux.ensureTuiPane('agent-session', 'codex', "'bun' '/repo/dist/bin/discode.js' 'tui'");
 
-      expect(executor.calls.some(call => call.command.includes('tmux split-window') && call.command.includes(' -h '))).toBe(true);
+      expect(executor.calls.some(call => call.command.includes('tmux split-window') && call.command.includes(' -h ') && call.command.includes(' -l 54 '))).toBe(true);
       expect(executor.calls.some(call => call.command.includes("tmux select-pane -t 'agent-session:codex.1' -T 'discode-tui'"))).toBe(true);
+      expect(executor.calls.some(call => call.command.includes("tmux set-window-option -t 'agent-session:codex' window-size latest"))).toBe(true);
+      expect(executor.calls.some(call => call.command.includes("tmux resize-pane -t 'agent-session:codex.1' -x 54"))).toBe(true);
+      expect(executor.calls.some(call => call.command.includes('tmux run-shell -b') && call.command.includes('sleep 0.35') && call.command.includes('resize-pane') && call.command.includes(' -x 54'))).toBe(true);
+      executor.exec = originalExec;
+    });
+
+    it('keeps tui pane narrower than ai pane on narrow windows', () => {
+      const originalExec = executor.exec.bind(executor);
+      executor.exec = (command: string) => {
+        executor.calls.push({ method: 'exec', command });
+        if (command.includes('list-panes')) {
+          return '0\tcodex\tcodex';
+        }
+        if (command.includes('display-message')) {
+          return '70';
+        }
+        if (command.includes('split-window')) {
+          return '1';
+        }
+        return '';
+      };
+
+      tmux.ensureTuiPane('agent-session', 'codex', "'bun' '/repo/dist/bin/discode.js' 'tui'");
+
+      expect(executor.calls.some(call => call.command.includes('tmux split-window') && call.command.includes(' -l 34 '))).toBe(true);
       executor.exec = originalExec;
     });
 
@@ -396,7 +424,30 @@ describe('TmuxManager', () => {
       tmux.ensureTuiPane('agent-session', 'codex', "'bun' '/repo/dist/bin/discode.js' 'tui'");
 
       expect(executor.calls.some(call => call.command.includes("tmux kill-pane -t 'agent-session:codex.2'"))).toBe(true);
+      expect(executor.calls.some(call => call.command.includes("tmux resize-pane -t 'agent-session:codex.1' -x 54"))).toBe(true);
       expect(executor.calls.some(call => call.command.includes('tmux split-window'))).toBe(false);
+      executor.exec = originalExec;
+    });
+
+    it('forces main-vertical layout to keep tui pane narrow', () => {
+      const originalExec = executor.exec.bind(executor);
+      executor.exec = (command: string) => {
+        executor.calls.push({ method: 'exec', command });
+        if (command.includes('display-message')) {
+          return '120';
+        }
+        if (command.includes('list-panes')) {
+          return '1\tdiscode-tui\tbun /repo/dist/bin/discode.js tui\n0\tcodex\tcodex';
+        }
+        return '';
+      };
+
+      tmux.ensureTuiPane('agent-session', 'codex', "'bun' '/repo/dist/bin/discode.js' 'tui'");
+
+      expect(executor.calls.some(call => call.command.includes("tmux set-window-option -t 'agent-session:codex' window-size latest"))).toBe(true);
+      expect(executor.calls.some(call => call.command.includes("tmux select-layout -t 'agent-session:codex' main-vertical"))).toBe(true);
+      expect(executor.calls.some(call => call.command.includes("tmux set-window-option -t 'agent-session:codex' main-pane-width 65"))).toBe(true);
+      expect(executor.calls.some(call => call.command.includes("tmux resize-pane -t 'agent-session:codex.1' -x 54"))).toBe(true);
       executor.exec = originalExec;
     });
 

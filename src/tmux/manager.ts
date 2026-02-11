@@ -9,6 +9,8 @@ import { escapeShellArg } from '../infra/shell-escape.js';
 
 const TUI_PANE_TITLE = 'discode-tui';
 const TUI_PANE_COMMAND_MARKERS = ['discode.js tui', 'discode tui'];
+const TUI_PANE_MAX_WIDTH = 54;
+const TUI_PANE_DELAY_SECONDS = 0.35;
 
 type PaneMetadata = {
   index: number;
@@ -253,12 +255,80 @@ export class TmuxManager {
     }
   }
 
+  private getWindowWidth(target: string): number | undefined {
+    try {
+      const output = this.executor.exec(`tmux display-message -p -t ${escapeShellArg(target)} "#{window_width}"`);
+      const width = parseInt(output.trim(), 10);
+      return Number.isFinite(width) ? width : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private getTuiPaneWidth(windowTarget: string): number {
+    const windowWidth = this.getWindowWidth(windowTarget);
+    if (windowWidth === undefined) {
+      return TUI_PANE_MAX_WIDTH;
+    }
+
+    // Keep the TUI pane narrower than the AI pane.
+    const maxByBalance = Math.floor((windowWidth - 1) / 2);
+    return Math.max(1, Math.min(TUI_PANE_MAX_WIDTH, maxByBalance));
+  }
+
+  private resizePaneWidth(target: string, width: number): void {
+    try {
+      this.executor.exec(`tmux resize-pane -t ${escapeShellArg(target)} -x ${width}`);
+    } catch {
+      // Best effort.
+    }
+  }
+
+  private forceTuiPaneWidth(sessionName: string, windowName: string, tuiTarget: string, width: number): void {
+    const windowTarget = `${sessionName}:${windowName}`;
+    const windowWidth = this.getWindowWidth(windowTarget);
+    const paneCount = this.listPaneMetadata(sessionName, windowName).length;
+
+    try {
+      this.executor.exec(`tmux set-window-option -t ${escapeShellArg(windowTarget)} window-size latest`);
+    } catch {
+      // Best effort.
+    }
+
+    if (windowWidth !== undefined && paneCount === 2) {
+      const mainPaneWidth = Math.max(1, windowWidth - width - 1);
+      try {
+        this.executor.exec(`tmux select-layout -t ${escapeShellArg(windowTarget)} main-vertical`);
+      } catch {
+        // Best effort.
+      }
+      try {
+        this.executor.exec(`tmux set-window-option -t ${escapeShellArg(windowTarget)} main-pane-width ${mainPaneWidth}`);
+      } catch {
+        // Best effort.
+      }
+    }
+
+    this.resizePaneWidth(tuiTarget, width);
+
+    const delayedScript =
+      `sleep ${TUI_PANE_DELAY_SECONDS}; ` +
+      `tmux set-window-option -t ${escapeShellArg(windowTarget)} window-size latest >/dev/null 2>&1; ` +
+      `tmux resize-pane -t ${escapeShellArg(tuiTarget)} -x ${width} >/dev/null 2>&1`;
+    try {
+      this.executor.exec(`tmux run-shell -b ${escapeShellArg(delayedScript)}`);
+    } catch {
+      // Best effort.
+    }
+  }
+
   ensureTuiPane(sessionName: string, windowName: string, tuiCommand: string): void {
     const baseTarget = `${sessionName}:${windowName}`;
+    const splitWidth = this.getTuiPaneWidth(baseTarget);
 
     const existingTuiTargets = this.findTuiPaneTargets(sessionName, windowName);
     if (existingTuiTargets.length > 0) {
-      const [, ...duplicateTargets] = existingTuiTargets;
+      const [primaryTarget, ...duplicateTargets] = existingTuiTargets;
       for (const duplicateTarget of duplicateTargets) {
         try {
           this.executor.exec(`tmux kill-pane -t ${escapeShellArg(duplicateTarget)}`);
@@ -266,17 +336,19 @@ export class TmuxManager {
           // Keep going if cleanup fails for a stale pane target.
         }
       }
+      this.forceTuiPaneWidth(sessionName, windowName, primaryTarget, splitWidth);
       return;
     }
 
     const activeTarget = this.resolveWindowTarget(sessionName, windowName);
     const paneIndexOutput = this.executor.exec(
-      `tmux split-window -P -F "#{pane_index}" -t ${escapeShellArg(activeTarget)} -h ${escapeShellArg(tuiCommand)}`,
+      `tmux split-window -P -F "#{pane_index}" -t ${escapeShellArg(activeTarget)} -h -l ${splitWidth} ${escapeShellArg(tuiCommand)}`,
     );
     const paneIndex = paneIndexOutput.trim();
     if (/^\d+$/.test(paneIndex)) {
       const tuiTarget = `${baseTarget}.${paneIndex}`;
       this.executor.exec(`tmux select-pane -t ${escapeShellArg(tuiTarget)} -T ${escapeShellArg(TUI_PANE_TITLE)}`);
+      this.forceTuiPaneWidth(sessionName, windowName, tuiTarget, splitWidth);
     }
 
     this.executor.exec(`tmux select-pane -t ${escapeShellArg(activeTarget)}`);
