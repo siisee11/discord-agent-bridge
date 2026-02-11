@@ -1,7 +1,7 @@
 /** @jsxImportSource @opentui/solid */
 /** @jsxRuntime automatic */
 
-import { TextAttributes, TextareaRenderable } from '@opentui/core';
+import { InputRenderable, RGBA, TextAttributes, TextareaRenderable } from '@opentui/core';
 import { render, useKeyboard, useRenderer, useTerminalDimensions } from '@opentui/solid';
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 
@@ -36,11 +36,23 @@ const slashCommands = [
   { command: '/quit', description: 'close the TUI' },
 ];
 
+const paletteCommands = [
+  { command: '/session_new', description: 'Create a new session' },
+  { command: '/new', description: 'Alias for /session_new' },
+  { command: '/projects', description: 'List configured projects' },
+  { command: '/help', description: 'Show help' },
+  { command: '/exit', description: 'Exit TUI' },
+  { command: '/quit', description: 'Exit TUI' },
+];
+
 function TuiApp(props: { input: TuiInput; close: () => void }) {
   const dims = useTerminalDimensions();
   const renderer = useRenderer();
   const [value, setValue] = createSignal('');
   const [selected, setSelected] = createSignal(0);
+  const [paletteOpen, setPaletteOpen] = createSignal(false);
+  const [paletteQuery, setPaletteQuery] = createSignal('');
+  const [paletteSelected, setPaletteSelected] = createSignal(0);
   const [projects, setProjects] = createSignal<Array<{
     session: string;
     window: string;
@@ -49,6 +61,7 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
     open: boolean;
   }>>([]);
   let textarea: TextareaRenderable;
+  let paletteInput: InputRenderable;
 
   const openProjects = createMemo(() => projects().filter((item) => item.open));
   const sessionTree = createMemo(() => {
@@ -74,10 +87,19 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
   });
 
   const matches = createMemo(() => {
+    if (paletteOpen()) return [];
     const next = query();
     if (next === null) return [];
     if (next.length === 0) return slashCommands;
     return slashCommands.filter((item) => item.command.slice(1).startsWith(next));
+  });
+
+  const paletteMatches = createMemo(() => {
+    const q = paletteQuery().trim().toLowerCase();
+    if (!q) return paletteCommands;
+    return paletteCommands.filter((item) => {
+      return item.command.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
+    });
   });
 
   const clampSelection = (offset: number) => {
@@ -97,6 +119,45 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
     textarea.gotoBufferEnd();
   };
 
+  const openCommandPalette = () => {
+    setPaletteOpen(true);
+    setPaletteQuery('');
+    setPaletteSelected(0);
+    textarea?.blur();
+    setTimeout(() => {
+      if (!paletteInput || paletteInput.isDestroyed) return;
+      paletteInput.focus();
+    }, 1);
+  };
+
+  const closeCommandPalette = () => {
+    setPaletteOpen(false);
+    setPaletteQuery('');
+    setPaletteSelected(0);
+    setTimeout(() => {
+      if (!textarea || textarea.isDestroyed) return;
+      textarea.focus();
+    }, 1);
+  };
+
+  const clampPaletteSelection = (offset: number) => {
+    const items = paletteMatches();
+    if (items.length === 0) return;
+    const next = (paletteSelected() + offset + items.length) % items.length;
+    setPaletteSelected(next);
+  };
+
+  const executePaletteSelection = async () => {
+    const item = paletteMatches()[paletteSelected()];
+    if (!item) return;
+    closeCommandPalette();
+    const shouldClose = await props.input.onCommand(item.command, () => {});
+    if (shouldClose) {
+      renderer.destroy();
+      props.close();
+    }
+  };
+
   const submit = async () => {
     const raw = textarea?.plainText ?? '';
     const command = raw.trim();
@@ -112,6 +173,61 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
   };
 
   useKeyboard((evt) => {
+    if (evt.ctrl && evt.name === 'p') {
+      evt.preventDefault();
+      if (!paletteOpen()) {
+        openCommandPalette();
+      }
+      return;
+    }
+
+    if (paletteOpen()) {
+      if (evt.name === 'escape') {
+        evt.preventDefault();
+        closeCommandPalette();
+        return;
+      }
+      if (evt.name === 'up' || (evt.ctrl && evt.name === 'p')) {
+        evt.preventDefault();
+        clampPaletteSelection(-1);
+        return;
+      }
+      if (evt.name === 'down' || (evt.ctrl && evt.name === 'n')) {
+        evt.preventDefault();
+        clampPaletteSelection(1);
+        return;
+      }
+      if (evt.name === 'pageup') {
+        evt.preventDefault();
+        clampPaletteSelection(-10);
+        return;
+      }
+      if (evt.name === 'pagedown') {
+        evt.preventDefault();
+        clampPaletteSelection(10);
+        return;
+      }
+      if (evt.name === 'home') {
+        evt.preventDefault();
+        setPaletteSelected(0);
+        return;
+      }
+      if (evt.name === 'end') {
+        evt.preventDefault();
+        setPaletteSelected(Math.max(0, paletteMatches().length - 1));
+        return;
+      }
+      if (evt.name === 'return') {
+        evt.preventDefault();
+        void executePaletteSelection();
+        return;
+      }
+      if (evt.name === 'tab') {
+        evt.preventDefault();
+        return;
+      }
+    }
+
     if (evt.ctrl && evt.name === 'c') {
       evt.preventDefault();
       renderer.destroy();
@@ -182,6 +298,66 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
         </box>
       </Show>
 
+      <Show when={paletteOpen()}>
+        <box
+          width={dims().width}
+          height={dims().height}
+          backgroundColor={RGBA.fromInts(0, 0, 0, 150)}
+          position="absolute"
+          left={0}
+          top={0}
+          alignItems="center"
+          paddingTop={Math.floor(dims().height / 4)}
+        >
+          <box
+            width={Math.max(50, Math.min(70, dims().width - 2))}
+            backgroundColor={palette.panel}
+            flexDirection="column"
+            paddingTop={1}
+            paddingBottom={1}
+          >
+            <box paddingLeft={4} paddingRight={4} flexDirection="row" justifyContent="space-between">
+              <text fg={palette.primary} attributes={TextAttributes.BOLD}>Commands</text>
+              <text fg={palette.muted}>esc</text>
+            </box>
+            <box paddingLeft={4} paddingRight={4} paddingTop={1}>
+              <input
+                ref={(r: InputRenderable) => {
+                  paletteInput = r;
+                }}
+                placeholder="Search"
+                cursorColor={palette.primary}
+                focusedTextColor={palette.muted}
+                focusedBackgroundColor={palette.bg}
+                onInput={(next) => {
+                  setPaletteQuery(next);
+                  setPaletteSelected(0);
+                }}
+              />
+            </box>
+            <Show when={paletteMatches().length > 0} fallback={<box paddingLeft={4} paddingRight={4} paddingTop={1}><text fg={palette.muted}>No commands</text></box>}>
+              <For each={paletteMatches().slice(0, Math.max(8, Math.floor(dims().height / 2) - 6))}>
+                {(item, index) => (
+                  <box
+                    paddingLeft={3}
+                    paddingRight={1}
+                    paddingTop={index() === 0 ? 1 : 0}
+                    backgroundColor={paletteSelected() === index() ? palette.selectedBg : palette.panel}
+                  >
+                    <text fg={paletteSelected() === index() ? palette.selectedFg : palette.text}>{item.command}</text>
+                    <text fg={palette.muted}>{`  ${item.description}`}</text>
+                  </box>
+                )}
+              </For>
+            </Show>
+            <box paddingLeft={4} paddingRight={2} paddingTop={1}>
+              <text fg={palette.text}>Select </text>
+              <text fg={palette.muted}>enter</text>
+            </box>
+          </box>
+        </box>
+      </Show>
+
       <box backgroundColor={palette.bg} paddingLeft={2} paddingRight={2} paddingBottom={1}>
         <box border borderColor={palette.border} backgroundColor={palette.panel} flexDirection="column">
           <box paddingLeft={1} paddingRight={1}>
@@ -206,6 +382,10 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
                 setSelected(0);
               }}
               onKeyDown={(event) => {
+                if (paletteOpen()) {
+                  event.preventDefault();
+                  return;
+                }
                 if (matches().length === 0) return;
                 if (event.name === 'up') {
                   event.preventDefault();
