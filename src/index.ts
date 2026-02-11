@@ -163,6 +163,8 @@ export class AgentBridge {
               `tmux로 붙어서 Enter를 한 번 눌러보거나, 잠시 후 다시 보내주세요.`
             );
           }
+        } else if (agentType === 'opencode') {
+          await this.submitToOpencode(project.tmuxSession, windowName, sanitized);
         } else {
           this.tmux.sendKeysToWindow(project.tmuxSession, windowName, sanitized);
         }
@@ -445,6 +447,27 @@ export class AgentBridge {
 
   private pendingKey(projectName: string, agentType: string): string {
     return `${projectName}:${agentType}`;
+  }
+
+  private getEnvInt(name: string, defaultValue: number): number {
+    const raw = process.env[name];
+    if (!raw) return defaultValue;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return defaultValue;
+    return Math.trunc(n);
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    if (ms <= 0) return;
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async submitToOpencode(tmuxSession: string, windowName: string, prompt: string): Promise<void> {
+    // OpenCode can occasionally drop an immediate Enter while rendering.
+    this.tmux.typeKeysToWindow(tmuxSession, windowName, prompt.trimEnd());
+    const delayMs = this.getEnvInt('AGENT_DISCORD_OPENCODE_SUBMIT_DELAY_MS', 75);
+    await this.sleep(delayMs);
+    this.tmux.sendEnterToWindow(tmuxSession, windowName);
   }
 
   private async markAgentMessageCompleted(projectName: string, agentType: string): Promise<void> {

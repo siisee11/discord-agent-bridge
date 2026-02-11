@@ -361,6 +361,38 @@ describe('AgentBridge', () => {
         .filter((msg) => msg.includes('Codex에 메시지를 제출하지 못했습니다'));
       expect(warningCalls).toHaveLength(0);
     });
+
+    it('submits opencode via type-then-enter with short delay', async () => {
+      process.env.AGENT_DISCORD_OPENCODE_SUBMIT_DELAY_MS = '0';
+
+      const mockTmux = createMockTmux();
+      bridge = new AgentBridge({
+        discord: mockDiscord,
+        tmux: mockTmux,
+        stateManager: mockStateManager,
+        registry: createMockRegistry(),
+        config: createMockConfig(),
+      });
+
+      mockStateManager.getProject.mockReturnValue({
+        projectName: 'test-project',
+        projectPath: '/test',
+        tmuxSession: 'agent-test',
+        tmuxWindows: { opencode: 'test-project-opencode' },
+        discordChannels: { opencode: 'ch-123' },
+        agents: { opencode: true },
+        createdAt: new Date(),
+        lastActive: new Date(),
+      });
+
+      await bridge.start();
+      const cb = mockDiscord.onMessage.mock.calls[0][0];
+      await cb('opencode', 'hello opencode', 'test-project', 'ch-123');
+
+      expect(mockTmux.typeKeysToWindow).toHaveBeenCalledWith('agent-test', 'test-project-opencode', 'hello opencode');
+      expect(mockTmux.sendEnterToWindow).toHaveBeenCalledWith('agent-test', 'test-project-opencode');
+      expect(mockTmux.sendKeysToWindow).not.toHaveBeenCalled();
+    });
   });
 
   describe('setupProject', () => {
@@ -391,7 +423,7 @@ describe('AgentBridge', () => {
         { claude: true }
       );
 
-      expect(mockTmux.getOrCreateSession).toHaveBeenCalledWith('test-project');
+      expect(mockTmux.getOrCreateSession).toHaveBeenCalledWith('test-project', 'claude');
       expect(mockDiscord.createAgentChannels).toHaveBeenCalledWith(
         'guild-123',
         'test-project',
