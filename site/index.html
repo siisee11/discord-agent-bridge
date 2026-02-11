@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Discode - Run AI Agents, Watch in Discord</title>
+    <meta
+      name="description"
+      content="Discode bridges AI coding agents to Discord with tmux-based live streaming, project channels, and one-command session control."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg-glow bg-glow-left" aria-hidden="true"></div>
+    <div class="bg-glow bg-glow-right" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <a class="brand" href="#">discode</a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#workflow">Workflow</a>
+        <a href="https://github.com/siisee11/discode" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">AI Agent Collaboration</p>
+        <h1>Your coding agents, live in Discord.</h1>
+        <p class="subtitle">
+          Discode connects Claude Code, Codex, and OpenCode sessions to Discord so your team can monitor progress,
+          share context, and unblock faster from anywhere.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="https://github.com/siisee11/discode" target="_blank" rel="noreferrer">Get Started</a>
+          <a class="btn btn-secondary" href="#install">Install in 30 seconds</a>
+        </div>
+      </section>
+
+      <section id="features" class="grid">
+        <article class="card">
+          <h2>Live tmux Streaming</h2>
+          <p>Capture pane updates every 30 seconds and push clean output snapshots to project channels.</p>
+        </article>
+        <article class="card">
+          <h2>One Daemon, Many Projects</h2>
+          <p>Run a single Discord bot connection while tracking multiple repositories independently.</p>
+        </article>
+        <article class="card">
+          <h2>Agent Flexibility</h2>
+          <p>Use Claude Code, Codex, or OpenCode with auto-detection and a unified command flow.</p>
+        </article>
+      </section>
+
+      <section id="workflow" class="workflow">
+        <h2>How the flow works</h2>
+        <ol>
+          <li><span>1</span>Run <code>discode setup YOUR_BOT_TOKEN</code> once.</li>
+          <li><span>2</span>Move into your repo and run <code>discode go</code>.</li>
+          <li><span>3</span>Watch session updates land in your Discord project channel.</li>
+        </ol>
+      </section>
+
+      <section id="install" class="install">
+        <h2>Quick install</h2>
+        <pre><code>bun add -g discode
+discode setup YOUR_DISCORD_BOT_TOKEN
+cd ~/projects/your-app
+discode go</code></pre>
+      </section>
+    </main>
+
+    <footer>
+      <p>Built for remote AI pair-programming teams.</p>
+      <a href="https://github.com/siisee11/discode" target="_blank" rel="noreferrer">View Repository</a>
+    </footer>
+  </body>
+</html>

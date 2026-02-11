@@ -11,6 +11,10 @@
     "dev": "tsx src/index.ts",
     "build": "tsup",
     "start": "node dist/index.js",
+    "pages:dev": "vite",
+    "pages:build": "vite build",
+    "pages:preview": "vite preview",
+    "pages:deploy": "vite build && wrangler pages deploy ./dist-site --project-name=discode-landing",
     "setup:opencode-plugin": "tsx scripts/setup-opencode-plugin.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -44,6 +48,7 @@
     "tsup": "^8.0.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
+    "vite": "^7.1.5",
     "vitest": "^4.0.18"
   }
 }
