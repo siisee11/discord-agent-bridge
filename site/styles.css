@@ -13,9 +13,16 @@
 
 body {
   margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   font-family: "Manrope", sans-serif;
   color: var(--ink);
   background: radial-gradient(circle at top left, #ffffff, #f1f4f7 48%, #edf1f4);
+}
+
+main.shell {
+  flex: 1;
 }
 
 .shell {
