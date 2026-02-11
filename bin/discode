@@ -1,0 +1,114 @@
+#!/usr/bin/env node
+
+const childProcess = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+function spawnAndExit(command, args) {
+  const result = childProcess.spawnSync(command, args, { stdio: 'inherit' });
+  if (result.error) {
+    console.error(result.error.message);
+    process.exit(1);
+  }
+  process.exit(typeof result.status === 'number' ? result.status : 0);
+}
+
+function isMuslLinux() {
+  if (os.platform() !== 'linux') return false;
+  if (fs.existsSync('/etc/alpine-release')) return true;
+  try {
+    const out = childProcess.execSync('ldd --version 2>&1', { encoding: 'utf-8' });
+    return out.toLowerCase().includes('musl');
+  } catch {
+    return false;
+  }
+}
+
+function needsBaselineX64() {
+  if (os.arch() !== 'x64') return false;
+  if (os.platform() === 'linux') {
+    try {
+      const cpuinfo = fs.readFileSync('/proc/cpuinfo', 'utf-8').toLowerCase();
+      return !cpuinfo.includes('avx2');
+    } catch {
+      return false;
+    }
+  }
+  if (os.platform() === 'darwin') {
+    try {
+      const out = childProcess.execSync('sysctl -n hw.optional.avx2_0', { encoding: 'utf-8' }).trim();
+      return out !== '1';
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+function packageCandidates() {
+  const platformMap = {
+    darwin: 'darwin',
+    linux: 'linux',
+    win32: 'windows',
+  };
+  const archMap = {
+    x64: 'x64',
+    arm64: 'arm64',
+  };
+  const platform = platformMap[os.platform()] || os.platform();
+  const arch = archMap[os.arch()] || os.arch();
+  const scopedBase = `@siisee11/discode-${platform}-${arch}`;
+
+  const candidates = [];
+  if (platform === 'linux' && isMuslLinux()) {
+    if (arch === 'x64' && needsBaselineX64()) candidates.push(`${scopedBase}-baseline-musl`);
+    candidates.push(`${scopedBase}-musl`);
+  }
+  if (arch === 'x64' && needsBaselineX64()) candidates.push(`${scopedBase}-baseline`);
+  candidates.push(scopedBase);
+  return candidates;
+}
+
+function findPlatformBinary() {
+  const binaryName = os.platform() === 'win32' ? 'discode.exe' : 'discode';
+  for (const pkg of packageCandidates()) {
+    try {
+      const packageJsonPath = require.resolve(`${pkg}/package.json`);
+      const packageDir = path.dirname(packageJsonPath);
+      const binaryPath = path.join(packageDir, 'bin', binaryName);
+      if (fs.existsSync(binaryPath)) return binaryPath;
+    } catch {
+      // try next package candidate
+    }
+  }
+  return null;
+}
+
+function findLocalDevEntrypoint() {
+  const scriptDir = __dirname;
+  const candidates = [
+    path.join(scriptDir, '..', 'dist', 'bin', 'discode.js'),
+    path.join(scriptDir, '..', '..', 'dist', 'bin', 'discode.js'),
+  ];
+  return candidates.find((file) => fs.existsSync(file)) || null;
+}
+
+const explicitBinary = process.env.DISCODE_BIN_PATH;
+if (explicitBinary) {
+  spawnAndExit(explicitBinary, process.argv.slice(2));
+}
+
+const binary = findPlatformBinary();
+if (binary) {
+  spawnAndExit(binary, process.argv.slice(2));
+}
+
+const devEntrypoint = findLocalDevEntrypoint();
+if (devEntrypoint) {
+  spawnAndExit(process.execPath, [devEntrypoint, ...process.argv.slice(2)]);
+}
+
+console.error('No runnable discode binary found for this platform.');
+console.error('Try reinstalling with: npm i -g @siisee11/discode');
+process.exit(1);

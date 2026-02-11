@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/daemon-entry.ts', 'bin/discode.ts'],
+  entry: ['src/index.ts', 'src/daemon-entry.ts', 'bin/discode.ts', 'bin/tui.tsx'],
   format: ['esm'],
   dts: true,
   clean: true,

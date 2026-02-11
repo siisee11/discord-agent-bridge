@@ -56,7 +56,13 @@ The bridge uses a polling-based architecture that captures tmux pane content eve
 ### Global install
 
 ```bash
-bun add -g @siisee11/discode
+npm install -g @siisee11/discode
+```
+
+### Binary install (no Bun/Node runtime required)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/siisee11/discode/main/install | bash
 ```
 
 ### From source
@@ -401,6 +407,14 @@ discode new --tmux-session-mode shared --tmux-shared-session-name bridge
 bun install
 bun run build          # Compile TypeScript
 bun run dev            # Dev mode
+```
+
+### Release Packaging (prebuilt binaries)
+
+```bash
+npm run build:release              # Build platform binaries + npm meta package
+npm run build:release:binaries:single  # Build only current OS/arch binary
+npm run pack:release               # Create npm tarballs in dist/release
 ```
 
 ### Testing

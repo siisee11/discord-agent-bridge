@@ -17,8 +17,6 @@ import { defaultDaemonManager } from '../src/daemon.js';
 import { basename, resolve } from 'path';
 import { execSync } from 'child_process';
 import { createInterface } from 'readline';
-import { existsSync } from 'fs';
-import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import type { BridgeConfig } from '../src/types/index.js';
 
@@ -259,15 +257,24 @@ async function tuiCommand(options: TmuxCliOptions): Promise<void> {
   const currentSession = tmux.getCurrentSession(process.env.TMUX_PANE);
 
   const sourceCandidates = [
+    new URL('./tui.js', import.meta.url),
     new URL('./tui.tsx', import.meta.url),
+    new URL('../../dist/bin/tui.js', import.meta.url),
     new URL('../../bin/tui.tsx', import.meta.url),
   ];
-  const sourceUrl = sourceCandidates.find((candidate) => existsSync(fileURLToPath(candidate)));
-  if (!sourceUrl) {
-    throw new Error('OpenTUI source entry not found: bin/tui.tsx');
+  let mod: any;
+  for (const candidate of sourceCandidates) {
+    try {
+      mod = await import(candidate.href);
+      break;
+    } catch {
+      // try next candidate
+    }
+  }
+  if (!mod) {
+    throw new Error('OpenTUI entry not found: bin/tui.tsx or dist/bin/tui.js');
   }
 
-  const mod = await import(sourceUrl.href);
   await mod.runTui({
     currentSession: currentSession || undefined,
     onCommand: handler,
