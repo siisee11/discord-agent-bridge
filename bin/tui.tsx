@@ -3,10 +3,17 @@
 
 import { TextAttributes, TextareaRenderable } from '@opentui/core';
 import { render, useKeyboard, useRenderer, useTerminalDimensions } from '@opentui/solid';
-import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
+import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 
 type TuiInput = {
   onCommand: (command: string, append: (line: string) => void) => Promise<boolean | void>;
+  getProjects: () => Array<{
+    session: string;
+    window: string;
+    ai: string;
+    channel: string;
+    open: boolean;
+  }>;
 };
 
 const palette = {
@@ -34,7 +41,30 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
   const renderer = useRenderer();
   const [value, setValue] = createSignal('');
   const [selected, setSelected] = createSignal(0);
+  const [projects, setProjects] = createSignal<Array<{
+    session: string;
+    window: string;
+    ai: string;
+    channel: string;
+    open: boolean;
+  }>>([]);
   let textarea: TextareaRenderable;
+
+  const openProjects = createMemo(() => projects().filter((item) => item.open));
+  const sessionTree = createMemo(() => {
+    const groups = new Map<string, Array<{ window: string; ai: string; channel: string }>>();
+    openProjects().forEach((item) => {
+      const list = groups.get(item.session) || [];
+      list.push({ window: item.window, ai: item.ai, channel: item.channel });
+      groups.set(item.session, list);
+    });
+    return Array.from(groups.entries())
+      .map(([session, items]) => ({
+        session,
+        items: items.sort((a, b) => a.window.localeCompare(b.window)),
+      }))
+      .sort((a, b) => a.session.localeCompare(b.session));
+  });
 
   const query = createMemo(() => {
     const next = value();
@@ -90,12 +120,48 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
   });
 
   onMount(() => {
+    const refresh = () => {
+      setProjects(props.input.getProjects());
+    };
+    refresh();
+    const timer = setInterval(refresh, 2000);
+    onCleanup(() => clearInterval(timer));
     setTimeout(() => textarea?.focus(), 1);
   });
 
   return (
     <box width={dims().width} height={dims().height} backgroundColor={palette.bg} flexDirection="column">
-      <box flexGrow={1} backgroundColor={palette.bg}></box>
+      <box flexGrow={1} backgroundColor={palette.bg} alignItems="center" justifyContent="center" paddingLeft={2} paddingRight={2}>
+        <box
+          width={Math.max(40, Math.min(90, Math.floor(dims().width * 0.7)))}
+          border
+          borderColor={palette.border}
+          backgroundColor={palette.panel}
+          flexDirection="column"
+        >
+          <box paddingLeft={1} paddingRight={1}>
+            <text fg={palette.primary} attributes={TextAttributes.BOLD}>Current sessions</text>
+          </box>
+          <Show when={sessionTree().length > 0} fallback={<box paddingLeft={1} paddingRight={1}><text fg={palette.muted}>No current sessions</text></box>}>
+            <For each={sessionTree().slice(0, 6)}>
+              {(session) => (
+                <box flexDirection="column" paddingLeft={1} paddingRight={1} paddingBottom={1}>
+                  <text fg={palette.text}>{`session: ${session.session}`}</text>
+                  <For each={session.items}>
+                    {(item, index) => (
+                      <>
+                        <text fg={palette.text}>{`${index() === session.items.length - 1 ? '`--' : '|--'} window: ${item.window}`}</text>
+                        <text fg={palette.text}>{`${index() === session.items.length - 1 ? '    ' : '|   '}ai: ${item.ai}`}</text>
+                        <text fg={palette.text}>{`${index() === session.items.length - 1 ? '    ' : '|   '}channel: ${item.channel}`}</text>
+                      </>
+                    )}
+                  </For>
+                </box>
+              )}
+            </For>
+          </Show>
+        </box>
+      </box>
 
       <Show when={matches().length > 0}>
         <box backgroundColor={palette.bg} paddingLeft={2} paddingRight={2} paddingBottom={1}>

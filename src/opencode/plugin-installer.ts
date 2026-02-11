@@ -1,7 +1,12 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 
 export const OPENCODE_PLUGIN_FILENAME = 'agent-opencode-bridge-plugin.ts';
+
+export function getOpencodePluginDir(): string {
+  return join(homedir(), '.opencode', 'plugins');
+}
 
 export function getOpencodePluginSource(): string {
   return `export const AgentDiscordBridgePlugin = async () => {
@@ -147,8 +152,8 @@ export function getOpencodePluginSource(): string {
 `;
 }
 
-export function installOpencodePlugin(projectPath: string): string {
-  const pluginDir = join(projectPath, '.opencode', 'plugins');
+export function installOpencodePlugin(_projectPath?: string): string {
+  const pluginDir = getOpencodePluginDir();
   const pluginPath = join(pluginDir, OPENCODE_PLUGIN_FILENAME);
   mkdirSync(pluginDir, { recursive: true });
   writeFileSync(pluginPath, getOpencodePluginSource(), 'utf-8');

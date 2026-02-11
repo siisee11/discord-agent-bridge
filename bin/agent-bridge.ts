@@ -200,6 +200,7 @@ async function tuiCommand(options: TmuxCliOptions): Promise<void> {
 
   const preloadModule = '@opentui/solid/preload';
   await import(preloadModule);
+  const tmux = new TmuxManager(config.tmux.sessionPrefix);
 
   const sourceCandidates = [
     new URL('./tui.tsx', import.meta.url),
@@ -213,6 +214,21 @@ async function tuiCommand(options: TmuxCliOptions): Promise<void> {
   const mod = await import(sourceUrl.href);
   await mod.runTui({
     onCommand: handler,
+    getProjects: () =>
+      stateManager.listProjects().map((project) => {
+        const agentName = Object.entries(project.agents).find(([_, enabled]) => enabled)?.[0] || 'none';
+        const adapter = agentRegistry.get(agentName);
+        const window = project.tmuxWindows?.[agentName] || agentName;
+        const channelId = project.discordChannels[agentName];
+        const channelBase = channelId ? `discord#${agentName}-${project.projectName}` : 'not connected';
+        return {
+          session: project.tmuxSession,
+          window,
+          ai: adapter?.config.displayName || agentName,
+          channel: channelBase,
+          open: tmux.sessionExistsFull(project.tmuxSession),
+        };
+      }),
   });
 }
 

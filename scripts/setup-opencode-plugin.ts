@@ -1,13 +1,10 @@
 #!/usr/bin/env tsx
 
-import { resolve } from 'path';
 import { installOpencodePlugin } from '../src/opencode/plugin-installer.js';
 
 function main(): void {
-  const targetPath = resolve(process.argv[2] || process.cwd());
-
   try {
-    const pluginPath = installOpencodePlugin(targetPath);
+    const pluginPath = installOpencodePlugin();
     console.log(`✅ OpenCode plugin installed at: ${pluginPath}`);
     console.log('ℹ️ Restart opencode session to load the plugin.');
   } catch (error) {
