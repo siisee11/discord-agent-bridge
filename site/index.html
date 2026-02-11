@@ -3,82 +3,65 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Discode - Run AI Agents, Watch in Discord</title>
+    <title>Discode - AI sessions in Discord</title>
     <meta
       name="description"
-      content="Discode bridges AI coding agents to Discord with tmux-based live streaming, project channels, and one-command session control."
+      content="A simple bridge for running AI coding sessions and watching progress in Discord."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="bg-glow bg-glow-left" aria-hidden="true"></div>
-    <div class="bg-glow bg-glow-right" aria-hidden="true"></div>
-
-    <header class="topbar">
+    <header class="shell">
       <a class="brand" href="#">discode</a>
-      <nav>
-        <a href="#features">Features</a>
-        <a href="#workflow">Workflow</a>
-        <a href="https://github.com/siisee11/discode" target="_blank" rel="noreferrer">GitHub</a>
-      </nav>
+      <a class="repo" href="https://github.com/siisee11/discode" target="_blank" rel="noreferrer">GitHub</a>
     </header>
 
-    <main>
+    <main class="shell">
       <section class="hero">
-        <p class="eyebrow">AI Agent Collaboration</p>
-        <h1>Your coding agents, live in Discord.</h1>
-        <p class="subtitle">
-          Discode connects Claude Code, Codex, and OpenCode sessions to Discord so your team can monitor progress,
-          share context, and unblock faster from anywhere.
+        <p class="tag">Open-source AI bridge</p>
+        <h1>Run your AI coding sessions. Watch everything in Discord.</h1>
+        <p>
+          Discode connects tmux-based agent sessions to Discord channels so teams can follow progress without
+          screen sharing.
         </p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="https://github.com/siisee11/discode" target="_blank" rel="noreferrer">Get Started</a>
-          <a class="btn btn-secondary" href="#install">Install in 30 seconds</a>
+        <div class="actions">
+          <a class="button button-primary" href="#quickstart">Get started</a>
+          <a class="button button-muted" href="#why">Why discode</a>
         </div>
       </section>
 
-      <section id="features" class="grid">
-        <article class="card">
-          <h2>Live tmux Streaming</h2>
-          <p>Capture pane updates every 30 seconds and push clean output snapshots to project channels.</p>
-        </article>
-        <article class="card">
-          <h2>One Daemon, Many Projects</h2>
-          <p>Run a single Discord bot connection while tracking multiple repositories independently.</p>
-        </article>
-        <article class="card">
-          <h2>Agent Flexibility</h2>
-          <p>Use Claude Code, Codex, or OpenCode with auto-detection and a unified command flow.</p>
-        </article>
-      </section>
-
-      <section id="workflow" class="workflow">
-        <h2>How the flow works</h2>
-        <ol>
-          <li><span>1</span>Run <code>discode setup YOUR_BOT_TOKEN</code> once.</li>
-          <li><span>2</span>Move into your repo and run <code>discode go</code>.</li>
-          <li><span>3</span>Watch session updates land in your Discord project channel.</li>
-        </ol>
-      </section>
-
-      <section id="install" class="install">
-        <h2>Quick install</h2>
+      <section id="quickstart" class="panel">
+        <p class="panel-title">Quickstart</p>
         <pre><code>bun add -g discode
 discode setup YOUR_DISCORD_BOT_TOKEN
 cd ~/projects/your-app
 discode go</code></pre>
       </section>
+
+      <section id="why" class="panel simple-grid">
+        <article>
+          <h2>Simple flow</h2>
+          <p>One command starts agent session, daemon, channel creation, and tmux attach.</p>
+        </article>
+        <article>
+          <h2>Built for teams</h2>
+          <p>Each project gets its own Discord channel for updates, context, and shared visibility.</p>
+        </article>
+        <article>
+          <h2>Agent-agnostic</h2>
+          <p>Works with Claude Code, Codex, and OpenCode without changing your workflow.</p>
+        </article>
+      </section>
     </main>
 
-    <footer>
-      <p>Built for remote AI pair-programming teams.</p>
-      <a href="https://github.com/siisee11/discode" target="_blank" rel="noreferrer">View Repository</a>
+    <footer class="shell footer">
+      <p>Lightweight remote collaboration for AI coding sessions.</p>
     </footer>
   </body>
 </html>
