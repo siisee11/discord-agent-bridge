@@ -56,7 +56,7 @@ The bridge uses a polling-based architecture that captures tmux pane content eve
 ### Global install
 
 ```bash
-bun add -g discode
+bun add -g @siisee11/discode
 ```
 
 ### From source
