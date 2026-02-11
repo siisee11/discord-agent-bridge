@@ -239,6 +239,9 @@ async function tuiCommand(options: TmuxCliOptions): Promise<void> {
   const preloadModule = '@opentui/solid/preload';
   await import(preloadModule);
   const tmux = new TmuxManager(config.tmux.sessionPrefix);
+  const currentSession = process.env.TMUX_PANE
+    ? tmux.getSessionForPane(process.env.TMUX_PANE)
+    : null;
 
   const sourceCandidates = [
     new URL('./tui.tsx', import.meta.url),
@@ -251,6 +254,7 @@ async function tuiCommand(options: TmuxCliOptions): Promise<void> {
 
   const mod = await import(sourceUrl.href);
   await mod.runTui({
+    currentSession: currentSession || undefined,
     onCommand: handler,
     onAttachProject: async (project: string) => {
       attachCommand(project, {

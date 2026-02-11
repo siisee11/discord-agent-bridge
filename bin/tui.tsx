@@ -6,6 +6,7 @@ import { render, useKeyboard, useRenderer, useTerminalDimensions } from '@opentu
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 
 type TuiInput = {
+  currentSession?: string;
   onCommand: (command: string, append: (line: string) => void) => Promise<boolean | void>;
   onStopProject: (project: string) => Promise<void>;
   onAttachProject: (project: string) => Promise<void>;
@@ -94,19 +95,11 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
       ...existing,
     ];
   });
-  const sessionTree = createMemo(() => {
-    const groups = new Map<string, Array<{ window: string; ai: string; channel: string }>>();
-    openProjects().forEach((item) => {
-      const list = groups.get(item.session) || [];
-      list.push({ window: item.window, ai: item.ai, channel: item.channel });
-      groups.set(item.session, list);
-    });
-    return Array.from(groups.entries())
-      .map(([session, items]) => ({
-        session,
-        items: items.sort((a, b) => a.window.localeCompare(b.window)),
-      }))
-      .sort((a, b) => a.session.localeCompare(b.session));
+  const currentSessionItems = createMemo(() => {
+    if (!props.input.currentSession) return [];
+    return openProjects()
+      .filter((item) => item.session === props.input.currentSession)
+      .sort((a, b) => a.window.localeCompare(b.window));
   });
 
   const query = createMemo(() => {
@@ -398,35 +391,33 @@ function TuiApp(props: { input: TuiInput; close: () => void }) {
   return (
     <box width={dims().width} height={dims().height} backgroundColor={palette.bg} flexDirection="column">
       <box flexGrow={1} backgroundColor={palette.bg} alignItems="center" justifyContent="center" paddingLeft={2} paddingRight={2}>
-        <box
-          width={Math.max(40, Math.min(90, Math.floor(dims().width * 0.7)))}
-          border
-          borderColor={palette.border}
-          backgroundColor={palette.panel}
-          flexDirection="column"
-        >
-          <box paddingLeft={1} paddingRight={1}>
-            <text fg={palette.primary} attributes={TextAttributes.BOLD}>Current sessions</text>
+        <Show when={props.input.currentSession}>
+          <box
+            width={Math.max(40, Math.min(90, Math.floor(dims().width * 0.7)))}
+            border
+            borderColor={palette.border}
+            backgroundColor={palette.panel}
+            flexDirection="column"
+          >
+            <box paddingLeft={1} paddingRight={1}>
+              <text fg={palette.primary} attributes={TextAttributes.BOLD}>Current session</text>
+            </box>
+            <box flexDirection="column" paddingLeft={1} paddingRight={1} paddingBottom={1}>
+              <text fg={palette.text}>{`session: ${props.input.currentSession}`}</text>
+              <Show when={currentSessionItems().length > 0} fallback={<text fg={palette.muted}>No running projects in this session</text>}>
+                <For each={currentSessionItems().slice(0, 6)}>
+                  {(item, index) => (
+                    <>
+                      <text fg={palette.text}>{`${index() === currentSessionItems().length - 1 ? '`--' : '|--'} window: ${item.window}`}</text>
+                      <text fg={palette.text}>{`${index() === currentSessionItems().length - 1 ? '    ' : '|   '}ai: ${item.ai}`}</text>
+                      <text fg={palette.text}>{`${index() === currentSessionItems().length - 1 ? '    ' : '|   '}channel: ${item.channel}`}</text>
+                    </>
+                  )}
+                </For>
+              </Show>
+            </box>
           </box>
-          <Show when={sessionTree().length > 0} fallback={<box paddingLeft={1} paddingRight={1}><text fg={palette.muted}>No current sessions</text></box>}>
-            <For each={sessionTree().slice(0, 6)}>
-              {(session) => (
-                <box flexDirection="column" paddingLeft={1} paddingRight={1} paddingBottom={1}>
-                  <text fg={palette.text}>{`session: ${session.session}`}</text>
-                  <For each={session.items}>
-                    {(item, index) => (
-                      <>
-                        <text fg={palette.text}>{`${index() === session.items.length - 1 ? '`--' : '|--'} window: ${item.window}`}</text>
-                        <text fg={palette.text}>{`${index() === session.items.length - 1 ? '    ' : '|   '}ai: ${item.ai}`}</text>
-                        <text fg={palette.text}>{`${index() === session.items.length - 1 ? '    ' : '|   '}channel: ${item.channel}`}</text>
-                      </>
-                    )}
-                  </For>
-                </box>
-              )}
-            </For>
-          </Show>
-        </box>
+        </Show>
       </box>
 
       <Show when={matches().length > 0}>

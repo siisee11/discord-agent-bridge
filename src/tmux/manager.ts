@@ -50,6 +50,18 @@ export class TmuxManager {
     }
   }
 
+  getSessionForPane(paneTarget: string): string | null {
+    try {
+      const output = this.executor.exec(
+        `tmux display-message -p -t ${escapeShellArg(paneTarget)} "#{session_name}"`,
+      );
+      const sessionName = output.trim();
+      return sessionName.length > 0 ? sessionName : null;
+    } catch {
+      return null;
+    }
+  }
+
   createSession(name: string, firstWindowName?: string): void {
     const escapedName = escapeShellArg(`${this.sessionPrefix}${name}`);
     if (firstWindowName) {
