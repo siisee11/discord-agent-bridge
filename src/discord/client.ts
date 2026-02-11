@@ -16,7 +16,13 @@ import {
 import type { AgentMessage } from '../types/index.js';
 import { agentRegistry as defaultAgentRegistry, type AgentConfig, type AgentRegistry } from '../agents/index.js';
 
-type MessageCallback = (agentType: string, content: string, projectName: string, channelId: string) => void | Promise<void>;
+type MessageCallback = (
+  agentType: string,
+  content: string,
+  projectName: string,
+  channelId: string,
+  messageId?: string
+) => void | Promise<void>;
 
 interface ChannelInfo {
   projectName: string;
@@ -66,7 +72,7 @@ export class DiscordClient {
       const channelInfo = this.channelMapping.get(message.channelId);
       if (channelInfo && this.messageCallback) {
         try {
-          await this.messageCallback(channelInfo.agentType, message.content, channelInfo.projectName, message.channelId);
+          await this.messageCallback(channelInfo.agentType, message.content, channelInfo.projectName, message.channelId, message.id);
         } catch (error) {
           console.error(
             `Discord message handler error [${channelInfo.projectName}/${channelInfo.agentType}] channel=${message.channelId}:`,
@@ -426,6 +432,35 @@ export class DiscordClient {
       await (channel as TextChannel).send(content);
     } catch (error) {
       console.error(`Failed to send message to channel ${channelId}:`, error);
+    }
+  }
+
+  async addReactionToMessage(channelId: string, messageId: string, emoji: string): Promise<void> {
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (!channel?.isTextBased() || !('messages' in channel)) return;
+      const message = await (channel as TextChannel).messages.fetch(messageId);
+      await message.react(emoji);
+    } catch (error) {
+      console.warn(`Failed to add reaction ${emoji} on ${channelId}/${messageId}:`, error);
+    }
+  }
+
+  async replaceOwnReactionOnMessage(channelId: string, messageId: string, fromEmoji: string, toEmoji: string): Promise<void> {
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (!channel?.isTextBased() || !('messages' in channel)) return;
+      const message = await (channel as TextChannel).messages.fetch(messageId);
+
+      const fromReaction = message.reactions.cache.find((reaction) => reaction.emoji.name === fromEmoji);
+      const botUserId = this.client.user?.id;
+      if (fromReaction && botUserId) {
+        await fromReaction.users.remove(botUserId).catch(() => undefined);
+      }
+
+      await message.react(toEmoji);
+    } catch (error) {
+      console.warn(`Failed to replace reaction on ${channelId}/${messageId}:`, error);
     }
   }
 }

@@ -17,6 +17,11 @@ interface PollState {
   notifiedWorking: boolean;
 }
 
+interface PollerHooks {
+  onAgentComplete?: (projectName: string, agentType: string) => void | Promise<void>;
+  onAgentStopped?: (projectName: string, agentType: string) => void | Promise<void>;
+}
+
 function defaultPollState(): PollState {
   return {
     previousCapture: null,
@@ -34,7 +39,8 @@ export class CapturePoller {
     private tmux: TmuxManager,
     private discord: DiscordClient,
     private intervalMs: number = 30000,
-    private stateManager: IStateManager = defaultStateManager
+    private stateManager: IStateManager = defaultStateManager,
+    private hooks?: PollerHooks
   ) {}
 
   start(): void {
@@ -86,6 +92,7 @@ export class CapturePoller {
     } catch {
       // Session or window doesn't exist
       if (state.notifiedWorking) {
+        await this.hooks?.onAgentStopped?.(project.projectName, agentType);
         await this.send(channelId, '⏹️ 세션 종료됨');
         state.notifiedWorking = false;
       }
@@ -116,13 +123,13 @@ export class CapturePoller {
       // Send the current screen content as the final output
       const content = capture.trim();
 
+      await this.hooks?.onAgentComplete?.(project.projectName, agentType);
+
       if (content && content !== state.lastReportedCapture) {
         const chunks = splitForDiscord(`💬 **완료**\n\`\`\`\n${content}\n\`\`\``);
         for (const chunk of chunks) {
           await this.send(channelId, chunk);
         }
-      } else {
-        await this.send(channelId, '✅ 작업 완료');
       }
 
       state.lastReportedCapture = capture;

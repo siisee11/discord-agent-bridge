@@ -263,7 +263,7 @@ describe('CapturePoller', () => {
     expect(discord.sendToChannel).not.toHaveBeenCalled();
   });
 
-  it('sends simple completion when content matches lastReportedCapture', async () => {
+  it('does not send fallback completion message when content is empty', async () => {
     const project = makeProject('proj1', 'channel1');
     const stateManager = createMockStateManager([project]);
     const tmux = createMockTmux();
@@ -309,7 +309,7 @@ describe('CapturePoller', () => {
     tmux.capturePaneFromWindow.mockReturnValue('');
     await (poller as any).pollAll();
 
-    // Should send simple completion (empty content or already reported)
-    expect(discord.sendToChannel).toHaveBeenCalledWith('channel1', '✅ 작업 완료');
+    // No fallback completion message; reaction flow handles status in bridge
+    expect(discord.sendToChannel).not.toHaveBeenCalled();
   });
 });

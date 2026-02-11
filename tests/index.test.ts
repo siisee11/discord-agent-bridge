@@ -37,6 +37,8 @@ function createMockDiscord() {
     onMessage: vi.fn(),
     registerChannelMappings: vi.fn(),
     sendToChannel: vi.fn().mockResolvedValue(undefined),
+    addReactionToMessage: vi.fn().mockResolvedValue(undefined),
+    replaceOwnReactionOnMessage: vi.fn().mockResolvedValue(undefined),
     getGuilds: vi.fn().mockReturnValue([]),
     getChannelMapping: vi.fn().mockReturnValue(new Map()),
     createAgentChannels: vi.fn().mockResolvedValue({ claude: 'ch-123' }),
@@ -233,6 +235,40 @@ describe('AgentBridge', () => {
 
       expect(mockDiscord.onMessage).toHaveBeenCalledOnce();
       expect(mockDiscord.onMessage).toHaveBeenCalledWith(expect.any(Function));
+    });
+
+    it('uses reactions instead of received/completed status messages', async () => {
+      const mockTmux = createMockTmux();
+      bridge = new AgentBridge({
+        discord: mockDiscord,
+        tmux: mockTmux,
+        stateManager: mockStateManager,
+        registry: createMockRegistry(),
+        config: createMockConfig(),
+      });
+
+      mockStateManager.getProject.mockReturnValue({
+        projectName: 'test-project',
+        projectPath: '/test',
+        tmuxSession: 'agent-test',
+        discordChannels: { claude: 'ch-123' },
+        agents: { claude: true },
+        createdAt: new Date(),
+        lastActive: new Date(),
+      });
+
+      await bridge.start();
+      const cb = mockDiscord.onMessage.mock.calls[0][0];
+      await cb('claude', 'hello', 'test-project', 'ch-123', 'msg-1');
+
+      expect(mockDiscord.addReactionToMessage).toHaveBeenCalledWith('ch-123', 'msg-1', '⏳');
+      const statusMessages = mockDiscord.sendToChannel.mock.calls
+        .map((c: any[]) => String(c[1] ?? ''))
+        .filter((msg) => msg.includes('받은 메시지') || msg.includes('✅ 작업 완료'));
+      expect(statusMessages).toHaveLength(0);
+
+      await (bridge as any).markAgentMessageCompleted('test-project', 'claude');
+      expect(mockDiscord.replaceOwnReactionOnMessage).toHaveBeenCalledWith('ch-123', 'msg-1', '⏳', '✅');
     });
 
     it('retries Enter for codex if the prompt is not submitted', async () => {

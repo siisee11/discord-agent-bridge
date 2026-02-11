@@ -36,6 +36,7 @@ export class AgentBridge {
   private stateManager: IStateManager;
   private registry: AgentRegistry;
   private bridgeConfig: BridgeConfig;
+  private pendingMessageByAgent: Map<string, { channelId: string; messageId: string }> = new Map();
 
   constructor(deps?: AgentBridgeDeps) {
     this.bridgeConfig = deps?.config || defaultConfig;
@@ -44,7 +45,14 @@ export class AgentBridge {
     this.stateManager = deps?.stateManager || defaultStateManager;
     this.registry = deps?.registry || defaultAgentRegistry;
     this.codexSubmitter = deps?.codexSubmitter || new CodexSubmitter(this.tmux);
-    this.poller = new CapturePoller(this.tmux, this.discord, 30000, this.stateManager);
+    this.poller = new CapturePoller(this.tmux, this.discord, 30000, this.stateManager, {
+      onAgentComplete: async (projectName, agentType) => {
+        await this.markAgentMessageCompleted(projectName, agentType);
+      },
+      onAgentStopped: async (projectName, agentType) => {
+        await this.markAgentMessageError(projectName, agentType);
+      },
+    });
   }
 
   /**
@@ -119,7 +127,7 @@ export class AgentBridge {
     }
 
     // Set up message routing (Discord → Agent via tmux)
-    this.discord.onMessage(async (agentType, content, projectName, channelId) => {
+    this.discord.onMessage(async (agentType, content, projectName, channelId, messageId) => {
       console.log(`📨 [${projectName}/${agentType}] ${content.substring(0, 50)}...`);
 
       const project = this.stateManager.getProject(projectName);
@@ -137,12 +145,10 @@ export class AgentBridge {
       }
 
       // Get agent adapter
-      const adapter = this.registry.get(agentType);
-      const agentDisplayName = adapter?.config.displayName || agentType;
-
-      // Send confirmation to Discord
-      const preview = sanitized.length > 100 ? sanitized.substring(0, 100) + '...' : sanitized;
-      await this.discord.sendToChannel(channelId, `**${agentDisplayName}** - 📨 받은 메시지: \`${preview}\``);
+      if (messageId) {
+        this.pendingMessageByAgent.set(this.pendingKey(projectName, agentType), { channelId, messageId });
+        await this.discord.addReactionToMessage(channelId, messageId, '⏳');
+      }
 
       // Send to tmux
       const windowName = project.tmuxWindows?.[agentType] || agentType;
@@ -150,6 +156,7 @@ export class AgentBridge {
         if (agentType === 'codex') {
           const ok = await this.codexSubmitter.submit(project.tmuxSession, windowName, sanitized);
           if (!ok) {
+            await this.markAgentMessageError(projectName, agentType);
             await this.discord.sendToChannel(
               channelId,
               `⚠️ Codex에 메시지를 제출하지 못했습니다. Codex가 busy 상태일 수 있어요.\n` +
@@ -160,6 +167,7 @@ export class AgentBridge {
           this.tmux.sendKeysToWindow(project.tmuxSession, windowName, sanitized);
         }
       } catch (error) {
+        await this.markAgentMessageError(projectName, agentType);
         await this.discord.sendToChannel(
           channelId,
           `⚠️ tmux로 메시지 전달 실패: ${error instanceof Error ? error.message : String(error)}`
@@ -291,19 +299,19 @@ export class AgentBridge {
     const text = this.getEventText(event);
 
     if (eventType === 'session.error') {
+      await this.markAgentMessageError(projectName, agentType);
       const msg = text || 'unknown error';
       await this.discord.sendToChannel(channelId, `⚠️ OpenCode session error: ${msg}`);
       return true;
     }
 
     if (eventType === 'session.idle') {
+      await this.markAgentMessageCompleted(projectName, agentType);
       if (text && text.trim().length > 0) {
         const chunks = splitForDiscord(`💬 **완료**\n\`\`\`\n${text.trim()}\n\`\`\``);
         for (const chunk of chunks) {
           await this.discord.sendToChannel(channelId, chunk);
         }
-      } else {
-        await this.discord.sendToChannel(channelId, '✅ 작업 완료');
       }
       return true;
     }
@@ -434,6 +442,28 @@ export class AgentBridge {
       parts.push(`export ${key}=${escapeShellArg(value)}`);
     }
     return parts.length > 0 ? parts.join('; ') + '; ' : '';
+  }
+
+  private pendingKey(projectName: string, agentType: string): string {
+    return `${projectName}:${agentType}`;
+  }
+
+  private async markAgentMessageCompleted(projectName: string, agentType: string): Promise<void> {
+    const key = this.pendingKey(projectName, agentType);
+    const pending = this.pendingMessageByAgent.get(key);
+    if (!pending) return;
+
+    await this.discord.replaceOwnReactionOnMessage(pending.channelId, pending.messageId, '⏳', '✅');
+    this.pendingMessageByAgent.delete(key);
+  }
+
+  private async markAgentMessageError(projectName: string, agentType: string): Promise<void> {
+    const key = this.pendingKey(projectName, agentType);
+    const pending = this.pendingMessageByAgent.get(key);
+    if (!pending) return;
+
+    await this.discord.replaceOwnReactionOnMessage(pending.channelId, pending.messageId, '⏳', '❌');
+    this.pendingMessageByAgent.delete(key);
   }
 
   async stop(): Promise<void> {
